@@ -2221,7 +2221,7 @@ if (ImGui::IsMouseDoubleClicked(0)) {
 
     static bool p_open = true;
     ImGui::PushFont(Arabic);
-    if (ImGui::Begin(OBFUSCATE("TRS CHEATS~ARM32~V7A~2.7.0"), &p_open, ImGuiWindowFlags_NoSavedSettings)) {
+    if (ImGui::Begin(OBFUSCATE("beka~V7A~2.7.0"), &p_open, ImGuiWindowFlags_NoSavedSettings)) {
         static bool isLogin = true;
 
         if (!isLogin) {
@@ -2256,6 +2256,9 @@ if (ImGui::IsMouseDoubleClicked(0)) {
 		  ImGui::SameLine();
 					 if (ImGui::BekaButton(" Aim", Settings::Tab == 2)) 
 					Settings::Tab = 2;
+					   if (ImGui::Button("Run Auto Bypass")) {
+        AutoRunBypass(); // Fetch and apply bypass when the button is clicked
+    }
 					
    ImGui::SetCursorPos(ImVec2(10,90));
 				ImGui::BeginChild("##esp",ImVec2(400, 400));{
@@ -2415,6 +2418,86 @@ ImGui::End();
         std::this_thread::sleep_for(std::chrono::milliseconds(std::max(std::min(0LL, SLEEP_TIME - td), SLEEP_TIME)));
     }
 }
+
+// Add in Top
+
+
+#include <iostream>
+#include <string>
+#include <curl/curl.h>
+#include "imgui.h"
+
+std::string bypassStatus = "Waiting to load...";
+
+// Callback function to capture fetched data from the HTTP response
+size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* output) {
+    size_t totalSize = size * nmemb;
+    output->append((char*)contents, totalSize);
+    return totalSize;
+}
+
+// Function to fetch the offset from an online URL
+std::string FetchOffsetFromOnline(const std::string& url) {
+    CURL* curl;
+    CURLcode res;
+    std::string readBuffer;
+
+    curl = curl_easy_init();
+    if (curl) {
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L); // Follow redirects
+
+        res = curl_easy_perform(curl);
+        if (res != CURLE_OK) {
+            std::cerr << "cURL Error: " << curl_easy_strerror(res) << std::endl;
+        }
+
+        curl_easy_cleanup(curl);
+    }
+
+    return readBuffer;
+}
+
+// Function to apply the fetched offset
+void ApplyOffset(const std::string& offsetData) {
+    std::string libName, offset, patch;
+    size_t start = offsetData.find("\"");
+    if (start != std::string::npos) {
+        size_t end = offsetData.find("\"", start + 1);
+        libName = offsetData.substr(start + 1, end - start - 1);
+
+        start = offsetData.find("\"", end + 1);
+        end = offsetData.find("\"", start + 1);
+        offset = offsetData.substr(start + 1, end - start - 1);
+
+        start = offsetData.find("\"", end + 1);
+        end = offsetData.find("\"", start + 1);
+        patch = offsetData.substr(start + 1, end - start - 1);
+
+        std::cout << "Applying Offset: " << libName << ", " << offset << ", " << patch << std::endl;
+    } else {
+        bypassStatus = "Invalid offset data format!";
+        std::cerr << "Invalid offset data format!" << std::endl;
+    }
+}
+
+// Function to automatically fetch and apply the offset
+void AutoRunBypass() {
+    std::string url = "https://raw.githubusercontent.com/yourrepo/offsets/main/bypass.txt"; // Replace with your URL
+    std::string offsetData = FetchOffsetFromOnline(url);
+
+    if (!offsetData.empty()) {
+        ApplyOffset(offsetData);
+        bypassStatus = "Bypass applied successfully!";
+        std::cout << "Bypass applied automatically!" << std::endl;
+    } else {
+        bypassStatus = "Failed to fetch offset! Check your internet connection or URL.";
+        std::cerr << "Failed to fetch offset for auto-run!" << std::endl;
+    }
+}
+
 void *main_thread(void *) {
        
         UE4 = Tools::GetBaseAddress("libUE4.so");
