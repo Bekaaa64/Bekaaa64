@@ -8,12 +8,23 @@
 #include "StrEnc.h"
 #include "plthook.h"
 
+#include <iostream>
+#include <thread>
+#include <random>
+#include <cstring>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <dlfcn.h>
+#include <dlfcn.h>
+#include <vector>
+#include <thread>
+#include <unistd.h>
 
+#define PATCH_LIB
 #include "Items.h"
 #include "fontch.h"  
 #include "obfuscate.h"
 #include "KittyMemory/MemoryPatch.h"
-
 #include "json.hpp"
 #include "Rect.h"
 #include "Iconcpp.h"
@@ -21,6 +32,7 @@
 #include "Menu.h"
 #include "Font.h"
 #include "Font.h"
+bool Klavye;
 #include "Icon.h"
 using json = nlohmann::json;
 #define SLEEP_TIME 1000LL / 60LL
@@ -30,12 +42,129 @@ using namespace SDK;
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
 #include "base64/base64.h"
+int 系统屏幕宽 = -1; // Объявление переменной
+int 屏幕宽度;        // Объявление переменной
+int 系统屏幕高 = -1; // Объявление переменной
+int 屏幕高度;       // Объявление переменной
+static float SliderFloat = 0;
+namespace Antiban {
+bool fix{ true };
+}
+bool ui2;
+bool 人物血量;
+bool 人物姓名;
+bool 绘制开关 = true;
+std::string UE4数据存储;
+std::string PID数据存储;
+bool shiftPressed = false;
+bool alll;
+bool 人物骨骼; // Объявление переменной
+std::string UE4数据()
+{
+    static bool is_initialized = false; // 用于确保初始化只执行一次
+    if (!is_initialized) {
+        // 使用随机数生成器生成 32 位整数
+        std::random_device rd;    // 获取随机数种子
+        std::mt19937 gen(rd());   // 使用 Mersenne Twister 算法
+        std::uniform_int_distribution<uint32_t> dis(0, 0xFFFFFFFF); // 生成 0 到 0xFFFFFFFF 的随机数
+
+        uint32_t random_number = dis(gen); // 生成随机数
+
+        // 将随机数格式化为十六进制字符串
+        std::stringstream ss;
+        ss << "0x" << std::hex << std::uppercase << random_number; // 转换为大写十六进制
+        UE4数据存储 = ss.str(); // 保存到全局变量
+
+        is_initialized = true; // 标记初始化已完成
+    }
+    return UE4数据存储;
+}
 
 
+std::string PID数据()
+{
+    static bool is_initialized = false; // 用于确保初始化只执行一次
+    if (!is_initialized) {
+        // 使用随机数生成器生成 32 位整数
+        std::random_device rd;    // 获取随机数种子
+        std::mt19937 gen(rd());   // 使用 Mersenne Twister 算法
+        std::uniform_int_distribution<uint32_t> dis(0, 0xFFFF); // 生成 0 到 0xFFFFFFFF 的随机数
 
+        uint32_t random_number = dis(gen); // 生成随机数
+
+        // 将随机数格式化为十六进制字符串
+        std::stringstream ss;
+        ss << "0x" << std::hex << std::uppercase << random_number; // 转换为大写十六进制
+        PID数据存储 = ss.str(); // 保存到全局变量
+
+        is_initialized = true; // 标记初始化已完成
+    }
+    return PID数据存储;
+}
+
+
+ImFont* inter_bold = nullptr;
+ImVec4 RainbowColor(float t)
+{
+    float r = 0.5f + 0.5f * sinf(2.0f * 3.14159f * t);
+    float g = 0.5f + 0.5f * sinf(2.0f * 3.14159f * (t + 0.33f));
+    float b = 0.5f + 0.5f * sinf(2.0f * 3.14159f * (t + 0.66f));
+    return ImVec4(r, g, b, 1.0f);
+}
+
+void SuperText(const char* text)
+{
+   
+    static auto start_time = std::chrono::high_resolution_clock::now();
+    auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::high_resolution_clock::now() - start_time
+    ).count() / 1000.0f;
+
+    for (int i = 0; i < strlen(text); ++i)
+    {
+
+        float wave_offset = sinf(elapsed_time * 2.0f + i * 0.5f) * 5.0f;
+
+  
+        float t = fmodf(elapsed_time + (float)i / (float)strlen(text), 1.0f);
+        ImVec4 currentColor = RainbowColor(t);
+
+   
+        ImGui::PushStyleColor(ImGuiCol_Text, currentColor);
+
+ 
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + wave_offset);
+        ImGui::Text("%c", text[i]);
+        ImGui::SameLine();
+
+        ImGui::PopStyleColor();
+    }
+    ImGui::NewLine();
+}
+
+const int Colors[] = {
+    0xFF0000, // Красный
+    0x00FF00, // Зеленый
+    0x0000FF, // Синий
+    // Добавьте больше цветов по необходимости
+};
+
+long GetRandomColorByIndex(int index) {
+    srand(index);
+
+    int a = 255;
+    int r = ((Colors[rand() % (sizeof(Colors) / sizeof(Colors[0]))] & 0xFF0000) >> 16);
+    int g = ((Colors[rand() % (sizeof(Colors) / sizeof(Colors[0]))] & 0x00FF00) >> 8);
+    int b = (Colors[rand() % (sizeof(Colors) / sizeof(Colors[0]))] & 0x0000FF);
+
+    return IM_COL32(r, g, b, a);
+}
+
+bool On;
+bool Of;
 
 float size_child = 0;
-static float SliderFloat = 0;
+// static float SliderFloat = 0;
 char extras[32];
 
 #define COLOR_GREEN Color(0.f, 0.5f, 0.f, 1.f)
@@ -415,6 +544,85 @@ sConfig Config{0};
 static bool Feu;
 #define CREATE_COLOR(r, g, b, a) new float[4] {(float)r, (float)g, (float)b, (float)a};
 
+#include "imgui/stb_image.h"
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_NOTUSED(v)  (void)sizeof(v)
+
+#include "Image/logo5.h"
+
+struct TextureInfo { ImTextureID textureId; int x; int y; int w; int h; };
+void DrawImage(int x, int y, int w, int h, ImTextureID Texture) {
+    ImGui::GetForegroundDrawList()->AddImage(Texture, ImVec2(x, y), ImVec2(x + w, y + h));
+}
+
+static TextureInfo textureInfo;
+TextureInfo CreateTexture(char* ImagePath) {
+    int w, h, n;
+    stbi_uc* data = stbi_load(ImagePath, &w, &h, &n, 0);
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    if (n == 3) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    }
+    else {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    }stbi_image_free(data);
+    textureInfo.textureId = reinterpret_cast<ImTextureID>((GLuint*)texture);
+    textureInfo.w = w;
+    textureInfo.h = h;
+    return textureInfo;
+}
+
+TextureInfo CreateTexture(const unsigned char* buf, int len) {
+    TextureInfo image;
+    unsigned char* image_data = stbi_load_from_memory(buf, len, &image.w, &image.h, NULL, 0);
+    if (image_data == NULL) { perror("File does not exist"); }
+    GLuint image_texture;
+    glGenTextures(1, &image_texture);
+    glBindTexture(GL_TEXTURE_2D, image_texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+#if defined(GL_UNPACK_ROW_LENGTH) && !defined(__EMSCRIPTEN__)
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.w, image.h, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+    stbi_image_free(image_data);
+    image.textureId = (ImTextureID)image_texture;
+    return image;
+}
+
+static struct Hand {
+
+} hand;
+
+TextureInfo logo5;
+
+void DrawLine(int x1, int y1, int x2, int y2, ImVec4 color, int size);
+void DrawRect(int x, int y, int w, int h, ImVec4 color, int size);
+void DrawRectFilled(int x, int y, int w, int h, ImVec4 color);
+void DrawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, ImVec4 Color, int T);
+void DrawCircle(int x, int y, float radius, ImVec4 color, int segments, int thickness);
+void DrawStrokeText(int x, int y, ImVec4 color, const char* str);
+void DrawImage(int x, int y, int w, int h, ImTextureID Texture);
+void DrawCircleFilled(int x, int y, int radius, ImVec4 color, int segments);
+float MouseToObjectDistance(float ObjectSrceenX,float ObjectSrceenY);
+float GetD2DPosDistance(float ObjectX,float ObjectY);
+
+void InitTexture() {
+
+logo5 = CreateTexture(LogoPIC_data, sizeof(LogoPIC_data));
+}
+
+
+
 static float LineSize = 0.6f;
 static float BoxSize = 1.7f;
 static float SkeletonSize = 1.0f;
@@ -491,7 +699,9 @@ FRotator ToRotator(FVector local, FVector target) {
 
     return newViewAngle;
 }
-
+std::random_device rd;
+std::mt19937 gen(rd());
+std::uniform_real_distribution<> dis(0, 1);
 
 #define W2S(w, s) UGameplayStatics::ProjectWorldToScreen(localController, w, true, s)
 
@@ -1020,12 +1230,809 @@ FVector WorldToRadar(float Yaw, FVector Origin, FVector LocalOrigin, float PosX,
 
 
 
-
 void DrawESP(ImDrawList *draw) {
 if (g_LocalController == 0){
    } else {
     }
-
+if (Antiban::fix){
+MemoryPatch::createWithHex("libUE4.so", 0x21C1B08, "70 4C 2D E9").Modify();
+PATCH_LIB("libUE4.so","0x971BE014","00 00 A0 E3 1E FF 2F E1"); //971BE014; 167 772 160; Dword
+PATCH_LIB("libUE4.so","0x971BE054","00 00 A0 E3 1E FF 2F E1"); //971BE054; 436 207 617; Dword
+PATCH_LIB("libUE4.so","0x971BE084","00 00 A0 E3 1E FF 2F E1"); //971BE084; 124 266 488; Dword
+PATCH_LIB("libUE4.so","0x971BE0A0","00 00 A0 E3 1E FF 2F E1"); //971BE0A0; 167 772 161; Dword
+PATCH_LIB("libUE4.so","0x971BE110","00 00 A0 E3 1E FF 2F E1"); //971BE110; 167 772 191; Dword
+PATCH_LIB("libUE4.so","0x971BE124","00 00 A0 E3 1E FF 2F E1"); //971BE124; 436 207 647; Dword
+PATCH_LIB("libUE4.so","0x971BE154","00 00 A0 E3 1E FF 2F E1"); //971BE154; 436 207 635; Dword
+PATCH_LIB("libUE4.so","0x971BE240","00 00 A0 E3 1E FF 2F E1"); //971BE240; 436 207 617; Dword
+PATCH_LIB("libUE4.so","0x971BE2EC","00 00 A0 E3 1E FF 2F E1"); //971BE2EC; 167 772 171; Dword
+PATCH_LIB("libUE4.so","0x971BE304","00 00 A0 E3 1E FF 2F E1"); //971BE304; 167 772 163; Dword
+PATCH_LIB("libUE4.so","0x971BE334","00 00 A0 E3 1E FF 2F E1"); //971BE334; 436 207 617; Dword
+PATCH_LIB("libUE4.so","0x971BE35C","00 00 A0 E3 1E FF 2F E1"); //971BE35C; 167 772 202; Dword
+PATCH_LIB("libUE4.so","0x971BE3D0","00 00 A0 E3 1E FF 2F E1"); //971BE3D0; 167 772 171; Dword
+PATCH_LIB("libUE4.so","0x971BE3E8","00 00 A0 E3 1E FF 2F E1"); //971BE3E8; 167 772 163; Dword
+PATCH_LIB("libUE4.so","0x971BE434","00 00 A0 E3 1E FF 2F E1"); //971BE434; 167 772 218; Dword
+PATCH_LIB("libUE4.so","0x971BE44C","00 00 A0 E3 1E FF 2F E1"); //971BE44C; 167 772 197; Dword
+PATCH_LIB("libUE4.so","0x971BE478","00 00 A0 E3 1E FF 2F E1"); //971BE478; 167 772 201; Dword
+PATCH_LIB("libUE4.so","0x971BE490","00 00 A0 E3 1E FF 2F E1"); //971BE490; 167 772 180; Dword
+PATCH_LIB("libUE4.so","0x971BE4BC","00 00 A0 E3 1E FF 2F E1"); //971BE4BC; 167 772 184; Dword
+PATCH_LIB("libUE4.so","0x971BE4D4","00 00 A0 E3 1E FF 2F E1"); //971BE4D4; 167 772 163; Dword
+PATCH_LIB("libUE4.so","0x971BE520","00 00 A0 E3 1E FF 2F E1"); //971BE520; 436 207 618; Dword
+PATCH_LIB("libUE4.so","0x971BE58C","00 00 A0 E3 1E FF 2F E1"); //971BE58C; 452 984 825; Dword
+PATCH_LIB("libUE4.so","0x971BE598","00 00 A0 E3 1E FF 2F E1"); //971BE598; 124 265 996; Dword
+PATCH_LIB("libUE4.so","0x971BE5DC","00 00 A0 E3 1E FF 2F E1"); //971BE5DC; 167 772 179; Dword
+PATCH_LIB("libUE4.so","0x971BE5E8","00 00 A0 E3 1E FF 2F E1"); //971BE5E8; 436 207 620; Dword
+PATCH_LIB("libUE4.so","0x971BE610","00 00 A0 E3 1E FF 2F E1"); //971BE610; 167 772 161; Dword
+PATCH_LIB("libUE4.so","0x971BE684","00 00 A0 E3 1E FF 2F E1"); //971BE684; 436 207 617; Dword
+PATCH_LIB("libUE4.so","0x971BE6A0","00 00 A0 E3 1E FF 2F E1"); //971BE6A0; 436 207 632; Dword
+PATCH_LIB("libUE4.so","0x971BE6B4","00 00 A0 E3 1E FF 2F E1"); //971BE6B4; 973 078 539; Dword
+PATCH_LIB("libUE4.so","0x971BE6F0","00 00 A0 E3 1E FF 2F E1"); //971BE6F0; 436 207 620; Dword
+PATCH_LIB("libUE4.so","0x971BE718","00 00 A0 E3 1E FF 2F E1"); //971BE718; 167 772 161; Dword
+PATCH_LIB("libUE4.so","0x971BE758","00 00 A0 E3 1E FF 2F E1"); //971BE758; 124 264 884; Dword
+PATCH_LIB("libUE4.so","0x971BE7D0","00 00 A0 E3 1E FF 2F E1"); //971BE7D0; 167 772 192; Dword
+PATCH_LIB("libUE4.so","0x971BE7DC","00 00 A0 E3 1E FF 2F E1"); //971BE7DC; 167 772 164; Dword
+PATCH_LIB("libUE4.so","0x971BE94C","00 00 A0 E3 1E FF 2F E1"); //971BE94C; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x971BE9EC","00 00 A0 E3 1E FF 2F E1"); //971BE9EC; 167 772 219; Dword
+PATCH_LIB("libUE4.so","0x971BE9F8","00 00 A0 E3 1E FF 2F E1"); //971BE9F8; 167 772 172; Dword
+PATCH_LIB("libUE4.so","0x971BEA10","00 00 A0 E3 1E FF 2F E1"); //971BEA10; 167 772 164; Dword
+PATCH_LIB("libUE4.so","0x971BEA8C","00 00 A0 E3 1E FF 2F E1"); //971BEA8C; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x971BEB44","00 00 A0 E3 1E FF 2F E1"); //971BEB44; 436 207 632; Dword
+PATCH_LIB("libUE4.so","0x971BEB58","00 00 A0 E3 1E FF 2F E1"); //971BEB58; 973 078 539; Dword
+PATCH_LIB("libUE4.so","0x971BEBA0","00 00 A0 E3 1E FF 2F E1"); //971BEBA0; 167 772 201; Dword
+PATCH_LIB("libUE4.so","0x971BEBAC","00 00 A0 E3 1E FF 2F E1"); //971BEBAC; 436 207 617; Dword
+PATCH_LIB("libUE4.so","0x971BEBF8","00 00 A0 E3 1E FF 2F E1"); //971BEBF8; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x971BEC28","00 00 A0 E3 1E FF 2F E1"); //971BEC28; 167 772 164; Dword
+PATCH_LIB("libUE4.so","0x971BED2C","00 00 A0 E3 1E FF 2F E1"); //971BED2C; 167 772 191; Dword
+PATCH_LIB("libUE4.so","0x971BED3C","00 00 A0 E3 1E FF 2F E1"); //971BED3C; 167 772 167; Dword
+PATCH_LIB("libUE4.so","0x971BED54","00 00 A0 E3 1E FF 2F E1"); //971BED54; 167 772 163; Dword
+PATCH_LIB("libUE4.so","0x971BEDAC","00 00 A0 E3 1E FF 2F E1"); //971BEDAC; 436 207 639; Dword
+PATCH_LIB("libUE4.so","0x971BEE08","00 00 A0 E3 1E FF 2F E1"); //971BEE08; 436 207 621; Dword
+PATCH_LIB("libUE4.so","0x971BEE20","00 00 A0 E3 1E FF 2F E1"); //971BEE20; 167 772 195; Dword
+PATCH_LIB("libUE4.so","0x971BEE34","00 00 A0 E3 1E FF 2F E1"); //971BEE34; 167 772 169; Dword
+PATCH_LIB("libUE4.so","0x971BEE4C","00 00 A0 E3 1E FF 2F E1"); //971BEE4C; 167 772 161; Dword
+PATCH_LIB("libUE4.so","0x971BEEC0","00 00 A0 E3 1E FF 2F E1"); //971BEEC0; 167 772 165; Dword
+PATCH_LIB("libUE4.so","0x971BEEFC","00 00 A0 E3 1E FF 2F E1"); //971BEEFC; 436 207 619; Dword
+PATCH_LIB("libUE4.so","0x971BF074","00 00 A0 E3 1E FF 2F E1"); //971BF074; 436 207 619; Dword
+PATCH_LIB("libUE4.so","0x971BF10C","00 00 A0 E3 1E FF 2F E1"); //971BF10C; 436 207 759; Dword
+PATCH_LIB("libUE4.so","0x971BF120","00 00 A0 E3 1E FF 2F E1"); //971BF120; 167 772 161; Dword
+PATCH_LIB("libUE4.so","0x971BF158","00 00 A0 E3 1E FF 2F E1"); //971BF158; 167 772 215; Dword
+PATCH_LIB("libUE4.so","0x971BF1BC","00 00 A0 E3 1E FF 2F E1"); //971BF1BC; 167 772 168; Dword
+PATCH_LIB("libUE4.so","0x971BF1D4","00 00 A0 E3 1E FF 2F E1"); //971BF1D4; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x971BF1EC","00 00 A0 E3 1E FF 2F E1"); //971BF1EC; 167 772 160; Dword
+PATCH_LIB("libUE4.so","0x971BF20C","00 00 A0 E3 1E FF 2F E1"); //971BF20C; 167 772 170; Dword
+PATCH_LIB("libUE4.so","0x971BF234","00 00 A0 E3 1E FF 2F E1"); //971BF234; 436 207 616; Dword
+PATCH_LIB("libUE4.so","0x971BF278","00 00 A0 E3 1E FF 2F E1"); //971BF278; 436 207 668; Dword
+PATCH_LIB("libUE4.so","0x971BF308","00 00 A0 E3 1E FF 2F E1"); //971BF308; 436 207 632; Dword
+PATCH_LIB("libUE4.so","0x971BF31C","00 00 A0 E3 1E FF 2F E1"); //971BF31C; 973 078 539; Dword
+PATCH_LIB("libUE4.so","0x971BF364","00 00 A0 E3 1E FF 2F E1"); //971BF364; 97 779 770; Dword
+PATCH_LIB("libUE4.so","0x971BF36C","00 00 A0 E3 1E FF 2F E1"); //971BF36C; 167 772 222; Dword
+PATCH_LIB("libUE4.so","0x971BF3A0","00 00 A0 E3 1E FF 2F E1"); //971BF3A0; 167 772 178; Dword
+PATCH_LIB("libUE4.so","0x971BF484","00 00 A0 E3 1E FF 2F E1"); //971BF484; 366 215 224; Dword
+PATCH_LIB("libUE4.so","0x971BF488","00 00 A0 E3 1E FF 2F E1"); //971BF488; 324 009 984; Dword
+PATCH_LIB("libUE4.so","0x971BF4F8","00 00 A0 E3 1E FF 2F E1"); //971BF4F8; 167 772 168; Dword
+PATCH_LIB("libUE4.so","0x971BF508","00 00 A0 E3 1E FF 2F E1"); //971BF508; 25 165 825; Dword
+PATCH_LIB("libUE4.so","0x971BF510","00 00 A0 E3 1E FF 2F E1"); //971BF510; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x971BF528","00 00 A0 E3 1E FF 2F E1"); //971BF528; 167 772 160; Dword
+PATCH_LIB("libUE4.so","0x971BF574","00 00 A0 E3 1E FF 2F E1"); //971BF574; 167 772 168; Dword
+PATCH_LIB("libUE4.so","0x971BF584","00 00 A0 E3 1E FF 2F E1"); //971BF584; 25 165 825; Dword
+PATCH_LIB("libUE4.so","0x971BF58C","00 00 A0 E3 1E FF 2F E1"); //971BF58C; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x971BF5A4","00 00 A0 E3 1E FF 2F E1"); //971BF5A4; 167 772 160; Dword
+PATCH_LIB("libUE4.so","0x971BF5C4","00 00 A0 E3 1E FF 2F E1"); //971BF5C4; 167 772 170; Dword
+PATCH_LIB("libUE4.so","0x971BF5EC","00 00 A0 E3 1E FF 2F E1"); //971BF5EC; 436 207 616; Dword
+PATCH_LIB("libUE4.so","0x971BF5FC","00 00 A0 E3 1E FF 2F E1"); //971BF5FC; 167 772 170; Dword
+PATCH_LIB("libUE4.so","0x971BF624","00 00 A0 E3 1E FF 2F E1"); //971BF624; 436 207 616; Dword
+PATCH_LIB("libUE4.so","0x971BF650","00 00 A0 E3 1E FF 2F E1"); //971BF650; 167 772 190; Dword
+PATCH_LIB("libUE4.so","0x971BF664","00 00 A0 E3 1E FF 2F E1"); //971BF664; 167 772 213; Dword
+PATCH_LIB("libUE4.so","0x971BF678","00 00 A0 E3 1E FF 2F E1"); //971BF678; 366 215 224; Dword
+PATCH_LIB("libUE4.so","0x971BF6E0","00 00 A0 E3 1E FF 2F E1"); //971BF6E0; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x971BF70C","00 00 A0 E3 1E FF 2F E1"); //971BF70C; 167 772 161; Dword
+PATCH_LIB("libUE4.so","0x971BF764","00 00 A0 E3 1E FF 2F E1"); //971BF764; 436 207 631; Dword
+PATCH_LIB("libUE4.so","0x971BF76C","00 00 A0 E3 1E FF 2F E1"); //971BF76C; 973 078 541; Dword
+PATCH_LIB("libUE4.so","0x971BF7BC","00 00 A0 E3 1E FF 2F E1"); //971BF7BC; 167 772 173; Dword
+PATCH_LIB("libUE4.so","0x971BF7CC","00 00 A0 E3 1E FF 2F E1"); //971BF7CC; 436 207 622; Dword
+PATCH_LIB("libUE4.so","0x971BF850","00 00 A0 E3 1E FF 2F E1"); //971BF850; 436 207 634; Dword
+PATCH_LIB("libUE4.so","0x971BF864","00 00 A0 E3 1E FF 2F E1"); //971BF864; 973 078 541; Dword
+PATCH_LIB("libUE4.so","0x971BF8A4","00 00 A0 E3 1E FF 2F E1"); //971BF8A4; 167 772 167; Dword
+PATCH_LIB("libUE4.so","0x971BF8F0","00 00 A0 E3 1E FF 2F E1"); //971BF8F0; 167 772 166; Dword
+PATCH_LIB("libUE4.so","0x971BF904","00 00 A0 E3 1E FF 2F E1"); //971BF904; 436 207 645; Dword
+PATCH_LIB("libUE4.so","0x971BF920","00 00 A0 E3 1E FF 2F E1"); //971BF920; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x971BF94C","00 00 A0 E3 1E FF 2F E1"); //971BF94C; 167 772 161; Dword
+PATCH_LIB("libUE4.so","0x971BF9A0","00 00 A0 E3 1E FF 2F E1"); //971BF9A0; 436 207 631; Dword
+PATCH_LIB("libUE4.so","0x971BF9A8","00 00 A0 E3 1E FF 2F E1"); //971BF9A8; 973 078 541; Dword
+PATCH_LIB("libUE4.so","0x971BF9F8","00 00 A0 E3 1E FF 2F E1"); //971BF9F8; 167 772 169; Dword
+PATCH_LIB("libUE4.so","0x971BFA8C","00 00 A0 E3 1E FF 2F E1"); //971BFA8C; 167 772 168; Dword
+PATCH_LIB("libUE4.so","0x971BFA9C","00 00 A0 E3 1E FF 2F E1"); //971BFA9C; 25 165 825; Dword
+PATCH_LIB("libUE4.so","0x971BFAA4","00 00 A0 E3 1E FF 2F E1"); //971BFAA4; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x971BFABC","00 00 A0 E3 1E FF 2F E1"); //971BFABC; 167 772 160; Dword
+PATCH_LIB("libUE4.so","0x971BFB08","00 00 A0 E3 1E FF 2F E1"); //971BFB08; 167 772 168; Dword
+PATCH_LIB("libUE4.so","0x971BFB20","00 00 A0 E3 1E FF 2F E1"); //971BFB20; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x971BFB38","00 00 A0 E3 1E FF 2F E1"); //971BFB38; 167 772 160; Dword
+PATCH_LIB("libUE4.so","0x971BFB5C","00 00 A0 E3 1E FF 2F E1"); //971BFB5C; 167 772 166; Dword
+PATCH_LIB("libUE4.so","0x971BFB84","00 00 A0 E3 1E FF 2F E1"); //971BFB84; 167 772 170; Dword
+PATCH_LIB("libUE4.so","0x972F2468","00 00 A0 E3 1E FF 2F E1"); //972F2468; 167 772 161; Dword
+PATCH_LIB("libUE4.so","0x972F2484","00 00 A0 E3 1E FF 2F E1"); //972F2484; 167 772 175; Dword
+PATCH_LIB("libUE4.so","0x972F24AC","00 00 A0 E3 1E FF 2F E1"); //972F24AC; 436 207 621; Dword
+PATCH_LIB("libUE4.so","0x972F255C","00 00 A0 E3 1E FF 2F E1"); //972F255C; 167 772 161; Dword
+PATCH_LIB("libUE4.so","0x972F25C0","00 00 A0 E3 1E FF 2F E1"); //972F25C0; 365 953 025; Dword
+PATCH_LIB("libUE4.so","0x972F25C4","00 00 A0 E3 1E FF 2F E1"); //972F25C4; 324 009 986; Dword
+PATCH_LIB("libUE4.so","0x972F25C8","00 00 A0 E3 1E FF 2F E1"); //972F25C8; 436 207 660; Dword
+PATCH_LIB("libUE4.so","0x972F2638","00 00 A0 E3 1E FF 2F E1"); //972F2638; 362 610 696; Dword
+PATCH_LIB("libUE4.so","0x972F263C","00 00 A0 E3 1E FF 2F E1"); //972F263C; 324 009 984; Dword
+PATCH_LIB("libUE4.so","0x972F2640","00 00 A0 E3 1E FF 2F E1"); //972F2640; 167 772 171; Dword
+PATCH_LIB("libUE4.so","0x972F2658","00 00 A0 E3 1E FF 2F E1"); //972F2658; 167 772 163; Dword
+PATCH_LIB("libUE4.so","0x972F26BC","00 00 A0 E3 1E FF 2F E1"); //972F26BC; 362 610 696; Dword
+PATCH_LIB("libUE4.so","0x972F26C0","00 00 A0 E3 1E FF 2F E1"); //972F26C0; 324 009 984; Dword
+PATCH_LIB("libUE4.so","0x972F26C4","00 00 A0 E3 1E FF 2F E1"); //972F26C4; 167 772 181; Dword
+PATCH_LIB("libUE4.so","0x972F26DC","00 00 A0 E3 1E FF 2F E1"); //972F26DC; 167 772 189; Dword
+PATCH_LIB("libUE4.so","0x972F271C","00 00 A0 E3 1E FF 2F E1"); //972F271C; 436 207 619; Dword
+PATCH_LIB("libUE4.so","0x972F2744","00 00 A0 E3 1E FF 2F E1"); //972F2744; 167 772 163; Dword
+PATCH_LIB("libUE4.so","0x972F27BC","00 00 A0 E3 1E FF 2F E1"); //972F27BC; 167 772 190; Dword
+PATCH_LIB("libUE4.so","0x972F27EC","00 00 A0 E3 1E FF 2F E1"); //972F27EC; 436 207 634; Dword
+PATCH_LIB("libUE4.so","0x972F281C","00 00 A0 E3 1E FF 2F E1"); //972F281C; 436 207 622; Dword
+PATCH_LIB("libUE4.so","0x972F2824","00 00 A0 E3 1E FF 2F E1"); //972F2824; 167 772 205; Dword
+PATCH_LIB("libUE4.so","0x972F284C","00 00 A0 E3 1E FF 2F E1"); //972F284C; 436 207 649; Dword
+PATCH_LIB("libUE4.so","0x972F2860","00 00 A0 E3 1E FF 2F E1"); //972F2860; 973 078 556; Dword
+PATCH_LIB("libUE4.so","0x972F28D0","00 00 A0 E3 1E FF 2F E1"); //972F28D0; 167 772 160; Dword
+PATCH_LIB("libUE4.so","0x972F2900","00 00 A0 E3 1E FF 2F E1"); //972F2900; 324 009 984; Dword
+PATCH_LIB("libUE4.so","0x972F2904","00 00 A0 E3 1E FF 2F E1"); //972F2904; 436 207 658; Dword
+PATCH_LIB("libUE4.so","0x972F2928","00 00 A0 E3 1E FF 2F E1"); //972F2928; 324 009 984; Dword
+PATCH_LIB("libUE4.so","0x972F2D20","00 00 A0 E3 1E FF 2F E1"); //972F2D20; 167 772 168; Dword
+PATCH_LIB("libUE4.so","0x972F2D40","00 00 A0 E3 1E FF 2F E1"); //972F2D40; 167 772 160; Dword
+PATCH_LIB("libUE4.so","0x972F3068","00 00 A0 E3 1E FF 2F E1"); //972F3068; 324 009 984; Dword
+PATCH_LIB("libUE4.so","0x972F306C","00 00 A0 E3 1E FF 2F E1"); //972F306C; 436 207 617; Dword
+PATCH_LIB("libUE4.so","0x972F308C","00 00 A0 E3 1E FF 2F E1"); //972F308C; 167 772 171; Dword
+PATCH_LIB("libUE4.so","0x972F30A8","00 00 A0 E3 1E FF 2F E1"); //972F30A8; 167 772 167; Dword
+PATCH_LIB("libUE4.so","0x972F30B0","00 00 A0 E3 1E FF 2F E1"); //972F30B0; 436 207 618; Dword
+PATCH_LIB("libUE4.so","0x972F30F0","00 00 A0 E3 1E FF 2F E1"); //972F30F0; 167 772 170; Dword
+PATCH_LIB("libUE4.so","0x972F311C","00 00 A0 E3 1E FF 2F E1"); //972F311C; 167 772 176; Dword
+PATCH_LIB("libUE4.so","0x972F32E8","00 00 A0 E3 1E FF 2F E1"); //972F32E8; 324 075 524; Dword
+PATCH_LIB("libUE4.so","0x972F32F0","00 00 A0 E3 1E FF 2F E1"); //972F32F0; 329 252 864; Dword
+PATCH_LIB("libUE4.so","0x972F3560","00 00 A0 E3 1E FF 2F E1"); //972F3560; 167 772 168; Dword
+PATCH_LIB("libUE4.so","0x972F356C","00 00 A0 E3 1E FF 2F E1"); //972F356C; 167 772 172; Dword
+PATCH_LIB("libUE4.so","0x972F3574","00 00 A0 E3 1E FF 2F E1"); //972F3574; 167 772 185; Dword
+PATCH_LIB("libUE4.so","0x972F36A4","00 00 A0 E3 1E FF 2F E1"); //972F36A4; 167 772 195; Dword
+PATCH_LIB("libUE4.so","0x972F36C8","00 00 A0 E3 1E FF 2F E1"); //972F36C8; 436 207 630; Dword
+PATCH_LIB("libUE4.so","0x972F36DC","00 00 A0 E3 1E FF 2F E1"); //972F36DC; 436 207 625; Dword
+PATCH_LIB("libUE4.so","0x972F36F0","00 00 A0 E3 1E FF 2F E1"); //972F36F0; 436 207 620; Dword
+PATCH_LIB("libUE4.so","0x972F3704","00 00 A0 E3 1E FF 2F E1"); //972F3704; 167 772 168; Dword
+PATCH_LIB("libUE4.so","0x972F3920","00 00 A0 E3 1E FF 2F E1"); //972F3920; 167 772 166; Dword
+PATCH_LIB("libUE4.so","0x972F3930","00 00 A0 E3 1E FF 2F E1"); //972F3930; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x972F39EC","00 00 A0 E3 1E FF 2F E1"); //972F39EC; 167 772 166; Dword
+PATCH_LIB("libUE4.so","0x972F39FC","00 00 A0 E3 1E FF 2F E1"); //972F39FC; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x972F3AB0","00 00 A0 E3 1E FF 2F E1"); //972F3AB0; 167 772 166; Dword
+PATCH_LIB("libUE4.so","0x972F3AC0","00 00 A0 E3 1E FF 2F E1"); //972F3AC0; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x972F3B74","00 00 A0 E3 1E FF 2F E1"); //972F3B74; 167 772 166; Dword
+PATCH_LIB("libUE4.so","0x972F3B84","00 00 A0 E3 1E FF 2F E1"); //972F3B84; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x972F3C34","00 00 A0 E3 1E FF 2F E1"); //972F3C34; 167 772 166; Dword
+PATCH_LIB("libUE4.so","0x972F3C44","00 00 A0 E3 1E FF 2F E1"); //972F3C44; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x972F3CF4","00 00 A0 E3 1E FF 2F E1"); //972F3CF4; 167 772 166; Dword
+PATCH_LIB("libUE4.so","0x972F3D04","00 00 A0 E3 1E FF 2F E1"); //972F3D04; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x972F3DB8","00 00 A0 E3 1E FF 2F E1"); //972F3DB8; 167 772 166; Dword
+PATCH_LIB("libUE4.so","0x972F3DC8","00 00 A0 E3 1E FF 2F E1"); //972F3DC8; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x972F3E78","00 00 A0 E3 1E FF 2F E1"); //972F3E78; 167 772 166; Dword
+PATCH_LIB("libUE4.so","0x972F3E88","00 00 A0 E3 1E FF 2F E1"); //972F3E88; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x972F3F2C","00 00 A0 E3 1E FF 2F E1"); //972F3F2C; 167 772 166; Dword
+PATCH_LIB("libUE4.so","0x972F3F3C","00 00 A0 E3 1E FF 2F E1"); //972F3F3C; 167 772 162; Dword
+PATCH_LIB("libUE4.so","0x972F3F7C","00 00 A0 E3 1E FF 2F E1"); //972F3F7C; 436 207 622; Dword
+PATCH_LIB("libUE4.so","0x972F3F98","00 00 A0 E3 1E FF 2F E1"); //972F3F98; 167 772 204; Dword
+PATCH_LIB("libUE4.so","0x972F3FC8","00 00 A0 E3 1E FF 2F E1"); //972F3FC8; 436 207 648; Dword
+PATCH_LIB("libUE4.so","0x972F3FD0","00 00 A0 E3 1E FF 2F E1"); //972F3FD0; 167 772 164; Dword
+PATCH_LIB("libUE4.so","0x972F3FF0","00 00 A0 E3 1E FF 2F E1"); //972F3FF0; 167 772 182; Dword
+PATCH_LIB("libUE4.so","0x972F4014","00 00 A0 E3 1E FF 2F E1"); //972F4014; 167 772 172; Dword
+PATCH_LIB("libUE4.so","0x973BA04C","00 00 A0 E3 1E FF 2F E1"); //973BA04C; 167 772 193; Dword
+PATCH_LIB("libUE4.so","0x973BA06C","00 00 A0 E3 1E FF 2F E1"); //973BA06C; 436 207 631; Dword
+PATCH_LIB("libUE4.so","0x973BA094","00 00 A0 E3 1E FF 2F E1"); //973BA094; 167 772 180; Dword
+PATCH_LIB("libUE4.so","0x973BA0D0","00 00 A0 E3 1E FF 2F E1"); //973BA0D0; 167 772 165; Dword
+PATCH_LIB("libUE4.so","0x973BA0E8","00 00 A0 E3 1E FF 2F E1"); //973BA0E8; 436 207 660; Dword
+PATCH_LIB("libUE4.so","0x973BA1E4","00 00 A0 E3 1E FF 2F E1"); //973BA1E4; 167 772 170; Dword
+PATCH_LIB("libUE4.so","0x973BA20C","00 00 A0 E3 1E FF 2F E1"); //973BA20C; 436 207 644; Dword
+PATCH_LIB("libUE4.so","0x973BA24C","00 00 A0 E3 1E FF 2F E1"); //973BA24C; 436 207 655; Dword
+PATCH_LIB("libUE4.so","0x973BA26C","00 00 A0 E3 1E FF 2F E1"); //973BA26C; 436 207 620; Dword
+PATCH_LIB("libUE4.so","0x973BA324","00 00 A0 E3 1E FF 2F E1"); //973BA324; 167 772 170; Dword
+PATCH_LIB("libUE4.so","0x973BA34C","00 00 A0 E3 1E FF 2F E1"); //973BA34C; 436 207 644; Dword
+PATCH_LIB("libUE4.so","0x973BA38C","00 00 A0 E3 1E FF 2F E1"); //973BA38C; 436 207 677; Dword
+PATCH_LIB("libUE4.so","0x5533b18","00 00 A0 E3 1E FF 2F E1");//[193]
+PATCH_LIB("libUE4.so","0x5533b20","00 00 A0 E3 1E FF 2F E1");//[194]
+PATCH_LIB("libUE4.so","0x5533b24","00 00 A0 E3 1E FF 2F E1");//[195]
+PATCH_LIB("libUE4.so","0x5533b30","00 00 A0 E3 1E FF 2F E1");//[196]
+PATCH_LIB("libUE4.so","0x5533b48","00 00 A0 E3 1E FF 2F E1");//[197]
+PATCH_LIB("libUE4.so","0x5533b4e","00 00 A0 E3 1E FF 2F E1");//[198]
+PATCH_LIB("libUE4.so","0x5533b54","00 00 A0 E3 1E FF 2F E1");//[199]
+PATCH_LIB("libUE4.so","0x5533b7c","00 00 A0 E3 1E FF 2F E1");//[200]
+PATCH_LIB("libUE4.so","0x5533ba0","00 00 A0 E3 1E FF 2F E1");//[201]
+PATCH_LIB("libUE4.so","0x5533bac","00 00 A0 E3 1E FF 2F E1");//[202]
+PATCH_LIB("libUE4.so","0x5533bbc","00 00 A0 E3 1E FF 2F E1");//[203]
+PATCH_LIB("libUE4.so","0x5533bc0","00 00 A0 E3 1E FF 2F E1");//[204]
+PATCH_LIB("libUE4.so","0x5533bcc","00 00 A0 E3 1E FF 2F E1");//[205]
+PATCH_LIB("libUE4.so","0x5533be4","00 00 A0 E3 1E FF 2F E1");//[206]
+PATCH_LIB("libUE4.so","0x5533bf4","00 00 A0 E3 1E FF 2F E1");//[207]
+PATCH_LIB("libUE4.so","0x5533c08","00 00 A0 E3 1E FF 2F E1");//[208]
+PATCH_LIB("libUE4.so","0x5533c0c","00 00 A0 E3 1E FF 2F E1");//[209]
+PATCH_LIB("libUE4.so","0x5533c30","00 00 A0 E3 1E FF 2F E1");//[210]
+PATCH_LIB("libUE4.so","0x5533c4c","00 00 A0 E3 1E FF 2F E1");//[211]
+PATCH_LIB("libUE4.so","0x5533c9c","00 00 A0 E3 1E FF 2F E1");//[212]
+PATCH_LIB("libUE4.so","0x5533d24","00 00 A0 E3 1E FF 2F E1");//[213]
+PATCH_LIB("libUE4.so","0x5533dc0","00 00 A0 E3 1E FF 2F E1");//[214]
+PATCH_LIB("libUE4.so","0x5533dd8","00 00 A0 E3 1E FF 2F E1");//[215]
+PATCH_LIB("libUE4.so","0x5533e04","00 00 A0 E3 1E FF 2F E1");//[216]
+PATCH_LIB("libUE4.so","0x5533e8c","00 00 A0 E3 1E FF 2F E1");//[217]
+PATCH_LIB("libUE4.so","0x5533ef0","00 00 A0 E3 1E FF 2F E1");//[218]
+PATCH_LIB("libUE4.so","0x5533ef4","00 00 A0 E3 1E FF 2F E1");//[219]
+PATCH_LIB("libUE4.so","0x5533f04","00 00 A0 E3 1E FF 2F E1");//[220]
+PATCH_LIB("libUE4.so","0x5533f20","00 00 A0 E3 1E FF 2F E1");//[221]
+PATCH_LIB("libUE4.so","0x5533f48","00 00 A0 E3 1E FF 2F E1");//[222]
+PATCH_LIB("libUE4.so","0x5533f50","00 00 A0 E3 1E FF 2F E1");//[223]
+PATCH_LIB("libUE4.so","0x5533f70","00 00 A0 E3 1E FF 2F E1");//[224]
+PATCH_LIB("libUE4.so","0x5533f7c","00 00 A0 E3 1E FF 2F E1");//[225]
+PATCH_LIB("libUE4.so","0x5533fa0","00 00 A0 E3 1E FF 2F E1");//[226]
+PATCH_LIB("libUE4.so","0x5533fb4","00 00 A0 E3 1E FF 2F E1");//[227]
+PATCH_LIB("libUE4.so","0x5533fc4","00 00 A0 E3 1E FF 2F E1");//[228]
+PATCH_LIB("libUE4.so","0x787D4","00 00 A0 E3 1E FF 2F E1");//4 00 00 0A);//[1]
+PATCH_LIB("libUE4.so","0x7869C","00 00 A0 E3 1E FF 2F E1");//A 00 00 0A);//[2]
+PATCH_LIB("libUE4.so","0x7868C","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x785D8,","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x78564","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x784DC","00 00 A0 E3 1E FF 2F E1");//E E2 56 24);//[6]
+PATCH_LIB("libUE4.so","0x784A0","00 00 A0 E3 1E FF 2F E1");//B 10 00 0A);//[7]
+PATCH_LIB("libUE4.so","0x78470","00 00 A0 E3 1E FF 2F E1");//F 00 00 0A);//[8]
+PATCH_LIB("libUE4.so","0x78454","00 00 A0 E3 1E FF 2F E1");//4 00 00 0A);//[9]
+PATCH_LIB("libUE4.so","0x78438","00 00 A0 E3 1E FF 2F E1");// 00 00 0A);//[10]
+PATCH_LIB("libUE4.so","0x783F4","00 00 A0 E3 1E FF 2F E1");//A 10 00 0A);//[11]
+PATCH_LIB("libUE4.so","0x783D8","00 00 A0 E3 1E FF 2F E1");//2 00 00 81);//[12]
+PATCH_LIB("libUE4.so","0x783C8","00 00 A0 E3 1E FF 2F E1");//F 00 00 0A);//[13]
+PATCH_LIB("libUE4.so","0x783AC","00 00 A0 E3 1E FF 2F E1");//4 00 00 0A);//[14]
+PATCH_LIB("libUE4.so","0x78390","00 00 A0 E3 1E FF 2F E1");// 00 00 0A);//[15]
+PATCH_LIB("libUE4.so","0x78348","00 00 A0 E3 1E FF 2F E1");//7 10 00 0A);//[16]
+PATCH_LIB("libUE4.so","0x7832C","00 00 A0 E3 1E FF 2F E1");//2 00 00 81);//[17]
+PATCH_LIB("libUE4.so","0x7831C","00 00 A0 E3 1E FF 2F E1");//C 00 00 0A);//[18]
+PATCH_LIB("libUE4.so","0x78304","00 00 A0 E3 1E FF 2F E1");//4 00 00 0A);//[19]
+PATCH_LIB("libUE4.so","0x781D8","00 00 A0 E3 1E FF 2F E1");//A 00 00 0A);//[20]
+PATCH_LIB("libUE4.so","0x781BC","00 00 A0 E3 1E FF 2F E1");//4 00 00 0A);//[21]
+PATCH_LIB("libUE4.so","0x7818C","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x78068","00 00 A0 E3 1E FF 2F E1");//E 20 00 0A);//[23]
+PATCH_LIB("libUE4.so","0x77FF4","00 00 A0 E3 1E FF 2F E1");// 10 00 0A);//[24]
+PATCH_LIB("libUE4.so","0x77FEC","00 00 A0 E3 1E FF 2F E1");//6 00 00 0A);//[25]
+PATCH_LIB("libUE4.so","0x77FC8","00 00 A0 E3 1E FF 2F E1");//6 00 00 0A);//[26]
+PATCH_LIB("libUE4.so","0x77F8C","00 00 A0 E3 1E FF 2F E1");//8 10 00 0A);//[27]
+PATCH_LIB("libUE4.so","0x77F7C","00 00 A0 E3 1E FF 2F E1");//4 10 00 0A);//[28]
+PATCH_LIB("libUE4.so","0x77F68","00 00 A0 E3 1E FF 2F E1");//5 30 00 0A);//[29]
+PATCH_LIB("libUE4.so","0x77F58","00 00 A0 E3 1E FF 2F E1");// 30 00 0A);//[30]
+PATCH_LIB("libUE4.so","0x77DE4","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[31]
+PATCH_LIB("libUE4.so","0x77D1C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[32]
+PATCH_LIB("libUE4.so","0x77D0C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[33]
+PATCH_LIB("libUE4.so","0x77C64","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[34]
+PATCH_LIB("libUE4.so","0x77BE8","00 00 A0 E3 1E FF 2F E1");//8 00 00 0A);//[35]
+PATCH_LIB("libUE4.so","0x77BB4","00 00 A0 E3 1E FF 2F E1");//0 10 00 0A);//[36]
+PATCH_LIB("libUE4.so","0x77B34","00 00 A0 E3 1E FF 2F E1");//0 00 05 31);//[37]
+PATCH_LIB("libUE4.so","0x77B14","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x77AFC","00 00 A0 E3 1E FF 2F E1");//A 20 00 0A);//[39]
+PATCH_LIB("libUE4.so","0x77AF0","00 00 A0 E3 1E FF 2F E1");//0 20 00 0A);//[40]
+PATCH_LIB("libUE4.so","0x77944,","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x777F4","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[42]
+PATCH_LIB("libUE4.so","0x777BC","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[43]
+PATCH_LIB("libUE4.so","0x777A0","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[44]
+PATCH_LIB("libUE4.so","0x77784","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[45]
+PATCH_LIB("libUE4.so","0x77470","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[46]
+PATCH_LIB("libUE4.so","0x77460","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[47]
+PATCH_LIB("libUE4.so","0x77450","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[48]
+PATCH_LIB("libUE4.so","0x7741C","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[49]
+PATCH_LIB("libUE4.so","0x77400","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[50]
+PATCH_LIB("libUE4.so","0x773E4","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[51]
+PATCH_LIB("libUE4.so","0x772D4","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x772C8","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x772B0","00 00 A0 E3 1E FF 2F E1");//C 10 00 0A);//[54]
+PATCH_LIB("libUE4.so","0x772A4","00 00 A0 E3 1E FF 2F E1");//2 10 00 0A);//[55]
+PATCH_LIB("libUE4.so","0x77270","00 00 A0 E3 1E FF 2F E1");//5 20 00 0A);//[56]
+PATCH_LIB("libUE4.so","0x771E0","00 00 A0 E3 1E FF 2F E1");//7 00 00 0A);//[57]
+PATCH_LIB("libUE4.so","0x771D8","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x76D94","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[59]
+PATCH_LIB("libUE4.so","0x76D84","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[60]
+PATCH_LIB("libUE4.so","0x76CF0","00 00 A0 E3 1E FF 2F E1");//6 00 00 A1);//[61]
+PATCH_LIB("libUE4.so","0x76CC4","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[62]
+PATCH_LIB("libUE4.so","0x76CB4","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[63]
+PATCH_LIB("libUE4.so","0x76BA0","00 00 A0 E3 1E FF 2F E1");// 10 00 0A);//[64]
+PATCH_LIB("libUE4.so","0x36034","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x35FC0","00 00 A0 E3 1E FF 2F E1");//0 00 48 01);//[66]
+PATCH_LIB("libUE4.so","0x35DDC","00 00 A0 E3 1E FF 2F E1");//4 88 29 47);//[67]
+PATCH_LIB("libUE4.so","0x35BF8","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x35770","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x3545C","00 00 A0 E3 1E FF 2F E1");//0 00 00 53);//[70]
+PATCH_LIB("libUE4.so","0x35458","00 00 A0 E3 1E FF 2F E1");//0 00 0A 31);//[71]
+PATCH_LIB("libUE4.so","0x35430","00 00 A0 E3 1E FF 2F E1");//1 00 00 A1);//[72]
+PATCH_LIB("libUE4.so","0x3541C","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x353BC","00 00 A0 E3 1E FF 2F E1");//E 00 00 0A);//[74]
+PATCH_LIB("libUE4.so","0x35380","00 00 A0 E3 1E FF 2F E1");// 00 00 0A);//[75]
+PATCH_LIB("libUE4.so","0x3535C","00 00 A0 E3 1E FF 2F E1");//B 00 00 0A);//[76]
+PATCH_LIB("libUE4.so","0x35048","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x3502C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[78]
+PATCH_LIB("libUE4.so","0x35010","00 00 A0 E3 1E FF 2F E1");//0 00 07 24);//[79]
+PATCH_LIB("libUE4.so","0x34F0C","00 00 A0 E3 1E FF 2F E1");//0 00 65 31);//[80]
+PATCH_LIB("libUE4.so","0x34DE0","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x34B34","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[82]
+PATCH_LIB("libUE4.so","0x348D0","00 00 A0 E3 1E FF 2F E1");//0 00 0F 97);//[83]
+PATCH_LIB("libUE4.so","0x348CC","00 00 A0 E3 1E FF 2F E1");//0 00 00 D5);//[84]
+PATCH_LIB("libUE4.so","0x3473C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[85]
+PATCH_LIB("libUE4.so","0x3472C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[86]
+PATCH_LIB("libUE4.so","0x346F8","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[87]
+PATCH_LIB("libUE4.so","0x346DC","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[88]
+PATCH_LIB("libUE4.so","0x346C0","00 00 A0 E3 1E FF 2F E1");//8 00 00 0A);//[89]
+PATCH_LIB("libUE4.so","0x346A0","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[90]
+PATCH_LIB("libUE4.so","0x342EC","00 00 A0 E3 1E FF 2F E1");//A 00 00 0A);//[91]
+PATCH_LIB("libUE4.so","0x33DAC","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[92]
+PATCH_LIB("libUE4.so","0x33D9C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[93]
+PATCH_LIB("libUE4.so","0x33D8C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[94]
+PATCH_LIB("libUE4.so","0x33D7C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[95]
+PATCH_LIB("libUE4.so","0x33B40","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[96]
+PATCH_LIB("libUE4.so","0x33B30","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[97]
+PATCH_LIB("libUE4.so","0x33B20","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[98]
+PATCH_LIB("libUE4.so","0x33B10","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[99]
+PATCH_LIB("libUE4.so","0x33B00","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[100]
+PATCH_LIB("libUE4.so","0x33A98","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[101]
+PATCH_LIB("libUE4.so","0x33A7C","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[102]
+PATCH_LIB("libUE4.so","0x33A60","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[103]
+PATCH_LIB("libUE4.so","0x33A44","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[104]
+PATCH_LIB("libUE4.so","0x33A0C","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[105]
+PATCH_LIB("libUE4.so","0x339F0","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[106]
+PATCH_LIB("libUE4.so","0x339D4","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[107]
+PATCH_LIB("libUE4.so","0x1DFB4","00 00 A0 E3 1E FF 2F E1");//8 00 00 0A);//[108]
+PATCH_LIB("libUE4.so","0x1DF68","00 00 A0 E3 1E FF 2F E1");//7 00 00 0A);//[109]
+PATCH_LIB("libUE4.so","0x1DF4C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[110]
+PATCH_LIB("libUE4.so","0x1DF04","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[111]
+PATCH_LIB("libUE4.so","0x1DEC8","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[112]
+PATCH_LIB("libUE4.so","0x1DE90","00 00 A0 E3 1E FF 2F E1");//A 00 00 0A);//[113]
+PATCH_LIB("libUE4.so","0x1DE84","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[114]
+PATCH_LIB("libUE4.so","0x1DE6C","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x1DDE8","00 00 A0 E3 1E FF 2F E1");//8 00 00 0A);//[116]
+PATCH_LIB("libUE4.so","0x1DD8C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[117]
+PATCH_LIB("libUE4.so","0x1DD14","00 00 A0 E3 1E FF 2F E1");//7 00 00 0A);//[118]
+PATCH_LIB("libUE4.so","0x1DCBC","00 00 A0 E3 1E FF 2F E1");//0 00 49 51);//[119]
+PATCH_LIB("libUE4.so","0x1DCA0","00 00 A0 E3 1E FF 2F E1");//9 00 00 0A);//[120]
+PATCH_LIB("libUE4.so","0x1DC5C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[121]
+PATCH_LIB("libUE4.so","0x1DC3C","00 00 A0 E3 1E FF 2F E1");//7 00 00 0A);//[122]
+PATCH_LIB("libUE4.so","0x1DC20","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[123]
+PATCH_LIB("libUE4.so","0x1DBE4","00 00 A0 E3 1E FF 2F E1");//A 20 00 0A);//[124]
+PATCH_LIB("libUE4.so","0x1DBD4","00 00 A0 E3 1E FF 2F E1");//9 20 00 0A);//[125]
+PATCH_LIB("libUE4.so","0x1DB64","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[126]
+PATCH_LIB("libUE4.so","0x1DB48","00 00 A0 E3 1E FF 2F E1");//D 00 00 0A);//[127]
+PATCH_LIB("libUE4.so","0x1DB40","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x1DA88","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[129]
+PATCH_LIB("libUE4.so","0x1D8D0","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x6A258","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[131]
+PATCH_LIB("libUE4.so","0x6A248","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[132]
+PATCH_LIB("libUE4.so","0x6A1E4","00 00 A0 E3 1E FF 2F E1");//F 10 00 0A);//[133]
+PATCH_LIB("libUE4.so","0x6A1AC","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[134]
+PATCH_LIB("libUE4.so","0x6A19C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[135]
+PATCH_LIB("libUE4.so","0x6A0E4","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[136]
+PATCH_LIB("libUE4.so","0x6A0D4","00 00 A0 E3 1E FF 2F E1");//9 00 00 0A);//[137]
+PATCH_LIB("libUE4.so","0x6A0B0","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[138]
+PATCH_LIB("libUE4.so","0x6A008","00 00 A0 E3 1E FF 2F E1");//9 20 00 0A);//[139]
+PATCH_LIB("libUE4.so","0x69FE4","00 00 A0 E3 1E FF 2F E1");//0 20 00 0A);//[140]
+PATCH_LIB("libUE4.so","0x69FD4","00 00 A0 E3 1E FF 2F E1");//C 10 00 0A);//[141]
+PATCH_LIB("libUE4.so","0x69FB8","00 00 A0 E3 1E FF 2F E1");//5 10 00 0A);//[142]
+PATCH_LIB("libUE4.so","0x69F7C","00 00 A0 E3 1E FF 2F E1");//6 00 00 0A);//[143]
+PATCH_LIB("libUE4.so","0x69F40","00 00 A0 E3 1E FF 2F E1");//F 00 00 0A);//[144]
+PATCH_LIB("libUE4.so","0x69F34","00 00 A0 E3 1E FF 2F E1");//B 00 00 0A);//[145]
+PATCH_LIB("libUE4.so","0x69F04","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[146]
+PATCH_LIB("libUE4.so","0x69EB8","00 00 A0 E3 1E FF 2F E1");//A 20 00 0A);//[147]
+PATCH_LIB("libUE4.so","0x69E4C","00 00 A0 E3 1E FF 2F E1");//5 10 00 0A);//[148]
+PATCH_LIB("libUE4.so","0x69DF8","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x69DE0","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[150]
+PATCH_LIB("libUE4.so","0x69DB4","00 00 A0 E3 1E FF 2F E1");//7 00 00 0A);//[151]
+PATCH_LIB("libUE4.so","0x69D98","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[152]
+PATCH_LIB("libUE4.so","0x69D60","00 00 A0 E3 1E FF 2F E1");//3 10 00 0A);//[153]
+PATCH_LIB("libUE4.so","0x69D40","00 00 A0 E3 1E FF 2F E1");//B 00 00 0A);//[154]
+PATCH_LIB("libUE4.so","0x69D10","00 00 A0 E3 1E FF 2F E1");// 00 00 0A);//[155]
+PATCH_LIB("libUE4.so","0x69C1C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[156]
+PATCH_LIB("libUE4.so","0x69C0C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[157]
+PATCH_LIB("libUE4.so","0x69BFC","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[158]
+PATCH_LIB("libUE4.so","0x69B68","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[159]
+PATCH_LIB("libUE4.so","0x69B58","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[160]
+PATCH_LIB("libUE4.so","0x69B48","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[161]
+PATCH_LIB("libUE4.so","0x69A44","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[162]
+PATCH_LIB("libUE4.so","0x69A34","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[163]
+PATCH_LIB("libUE4.so","0x32236C","00 00 A0 E3 1E FF 2F E1");//6 00 00 0A);//[164]
+PATCH_LIB("libUE4.so","0x322360","00 00 A0 E3 1E FF 2F E1");//6 00 00 0A);//[165]
+PATCH_LIB("libUE4.so","0x322350","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x3222D8","00 00 A0 E3 1E FF 2F E1");//0 00 00 A1);//[167]
+PATCH_LIB("libUE4.so","0x32229C","00 00 A0 E3 1E FF 2F E1");//5 00 00 0A);//[168]
+PATCH_LIB("libUE4.so","0x322284","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x322248","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x322230","00 00 A0 E3 1E FF 2F E1");//2 10 00 0A);//[171]
+PATCH_LIB("libUE4.so","0x322224","00 00 A0 E3 1E FF 2F E1");//8 00 00 0A);//[172]
+PATCH_LIB("libUE4.so","0x322194","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x322168","00 00 A0 E3 1E FF 2F E1");//7 20 00 0A);//[174]
+PATCH_LIB("libUE4.so","0x32215C","00 00 A0 E3 1E FF 2F E1");//9 10 00 0A);//[175]
+PATCH_LIB("libUE4.so","0x32214C","00 00 A0 E3 1E FF 2F E1");//0 20 00 0A);//[176]
+PATCH_LIB("libUE4.so","0x322140","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x32211C","00 00 A0 E3 1E FF 2F E1");//4 10 00 0A);//[178]
+PATCH_LIB("libUE4.so","0x322110","00 00 A0 E3 1E FF 2F E1");// 10 00 0A);//[179]
+PATCH_LIB("libUE4.so","0x3220E8","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[180]
+PATCH_LIB("libUE4.so","0x321F9C","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x321EB8","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[182]
+PATCH_LIB("libUE4.so","0x321EA8","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[183]
+PATCH_LIB("libUE4.so","0x321E7C","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x321DDC","00 00 A0 E3 1E FF 2F E1");//3 20 00 0A);//[185]
+PATCH_LIB("libUE4.so","0x321DB8","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x321DA4","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x321D90","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x321D7C","00 00 A0 E3 1E FF 2F E1");//8 00 00 0A);//[189]
+PATCH_LIB("libUE4.so","0x321C50","00 00 A0 E3 1E FF 2F E1");//4 00 00 0A);//[190]
+PATCH_LIB("libUE4.so","0x321C30","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[191]
+PATCH_LIB("libUE4.so","0x321AB8","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x321A74","00 00 A0 E3 1E FF 2F E1");//1 00 00 A1);//[193]
+PATCH_LIB("libUE4.so","0x321A60","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x3219C4","00 00 A0 E3 1E FF 2F E1");//B 00 00 0A);//[195]
+PATCH_LIB("libUE4.so","0x3219B0","00 00 A0 E3 1E FF 2F E1");//D 10 00 0A);//[196]
+PATCH_LIB("libUE4.so","0x3219A4","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[197]
+PATCH_LIB("libUE4.so","0x280BAC","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[198]
+PATCH_LIB("libUE4.so","0x280B9C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[199]
+PATCH_LIB("libUE4.so","0x280B88","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[200]
+PATCH_LIB("libUE4.so","0x280B4C","00 00 A0 E3 1E FF 2F E1");//4 00 00 0A);//[201]
+PATCH_LIB("libUE4.so","0x280B30","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[202]
+PATCH_LIB("libUE4.so","0x280B20","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[203]
+PATCH_LIB("libUE4.so","0x280B10","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[204]
+PATCH_LIB("libUE4.so","0x280B00","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[205]
+PATCH_LIB("libUE4.so","0x280AF0","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[206]
+PATCH_LIB("libUE4.so","0x280978","00 00 A0 E3 1E FF 2F E1");//B 10 00 0A);//[207]
+PATCH_LIB("libUE4.so","0x280950","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x280918","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x2808FC","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[210]
+PATCH_LIB("libUE4.so","0x280898","00 00 A0 E3 1E FF 2F E1");//7 00 00 0A);//[211]
+PATCH_LIB("libUE4.so","0x28087C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[212]
+PATCH_LIB("libUE4.so","0x280864","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x28083C","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[214]
+PATCH_LIB("libUE4.so","0x2807C0","00 00 A0 E3 1E FF 2F E1");// 00 00 0A);//[215]
+PATCH_LIB("libUE4.so","0x280774","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x280714","00 00 A0 E3 1E FF 2F E1");//B 00 00 0A);//[217]
+PATCH_LIB("libUE4.so","0x28068C","00 00 A0 E3 1E FF 2F E1");//6 30 00 0A);//[218]
+PATCH_LIB("libUE4.so","0x280604","00 00 A0 E3 1E FF 2F E1");//B 00 00 0A);//[219]
+PATCH_LIB("libUE4.so","0x2805DC","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x2804B0","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x2804A8","00 00 A0 E3 1E FF 2F E1");//B 00 00 0A);//[222]
+PATCH_LIB("libUE4.so","0x280490","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[223]
+PATCH_LIB("libUE4.so","0x280424","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x2803FC","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[225]
+PATCH_LIB("libUE4.so","0x280274","00 00 A0 E3 1E FF 2F E1");//B 10 00 0A);//[226]
+PATCH_LIB("libUE4.so","0x28024C","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x280214","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x2801F8","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[229]
+PATCH_LIB("libUE4.so","0x2801E4","00 00 A0 E3 1E FF 2F E1");//0 00 05 31);//[230]
+PATCH_LIB("libUE4.so","0x2801E0","00 00 A0 E3 1E FF 2F E1");//B 00 00 0A);//[231]
+PATCH_LIB("libUE4.so","0x2801C8","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[232]
+PATCH_LIB("libUE4.so","0x28019C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[233]
+PATCH_LIB("libUE4.so","0x28018C","00 00 A0 E3 1E FF 2F E1");//3 20 00 0A);//[234]
+PATCH_LIB("libUE4.so","0x280110","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[235]
+PATCH_LIB("libUE4.so","0x280100","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[236]
+PATCH_LIB("libUE4.so","0x2800D4","00 00 A0 E3 1E FF 2F E1");//7 00 00 0A);//[237]
+PATCH_LIB("libUE4.so","0x2800B8","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[238]
+PATCH_LIB("libUE4.so","0x2800A8","00 00 A0 E3 1E FF 2F E1");//C 20 00 0A);//[239]
+PATCH_LIB("libUE4.so","0x28007C","00 00 A0 E3 1E FF 2F E1");//2 10 00 0A);//[240]
+PATCH_LIB("libUE4.so","0x280058","00 00 A0 E3 1E FF 2F E1");//4 10 00 0A);//[241]
+PATCH_LIB("libUE4.so","0x280034","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[242]
+PATCH_LIB("libUE4.so","0x28001C","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x280008","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[244]
+PATCH_LIB("libUE4.so","0x27FFF8","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[245]
+PATCH_LIB("libUE4.so","0x27FFD4","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[246]
+PATCH_LIB("libUE4.so","0x27FF24","00 00 A0 E3 1E FF 2F E1");//A 00 00 0A);//[247]
+PATCH_LIB("libUE4.so","0x27FF18","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[248]
+PATCH_LIB("libUE4.so","0x27FF00","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x27FE7C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[250]
+PATCH_LIB("libUE4.so","0x27FE6C","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[251]
+PATCH_LIB("libUE4.so","0x27FE40","00 00 A0 E3 1E FF 2F E1");//7 00 00 0A);//[252]
+PATCH_LIB("libUE4.so","0x27FE24","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[253]
+PATCH_LIB("libUE4.so","0x27FE14","00 00 A0 E3 1E FF 2F E1");//8 00 00 0A);//[254]
+PATCH_LIB("libUE4.so","0x27FDF4","00 00 A0 E3 1E FF 2F E1");//0 00 00 0A);//[255]
+PATCH_LIB("libUE4.so","0x27FDDC","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x27FDB4","00 00 A0 E3 1E FF 2F E1");//3 00 00 0A);//[257]
+PATCH_LIB("libUE4.so","0x27FD04","00 00 A0 E3 1E FF 2F E1");//7 00 00 0A);//[258]
+PATCH_LIB("libUE4.so","0x27FC98","00 00 A0 E3 1E FF 2F E1");//7 00 00 0A);//[259]
+PATCH_LIB("libUE4.so","0x27FC7C","00 00 A0 E3 1E FF 2F E1");//0 00 15 31);//[260]
+PATCH_LIB("libUE4.so","0x27FC78","00 00 A0 E3 1E FF 2F E1");//E 30 00 0A);//[261]
+PATCH_LIB("libUE4.so","0x27FC28","00 00 A0 E3 1E FF 2F E1");//A 20 00 0A);//[262]
+PATCH_LIB("libUE4.so","0x27FB8C","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x27FB84","00 00 A0 E3 1E FF 2F E1");
+PATCH_LIB("libUE4.so","0x14fdf4","00 00 A0 E3 1E FF 2F E1");//[85]
+PATCH_LIB("libUE4.so","0x14fe30","00 00 A0 E3 1E FF 2F E1");//[86]
+PATCH_LIB("libUE4.so","0x14fe3c","00 00 A0 E3 1E FF 2F E1");//[87]
+PATCH_LIB("libUE4.so","0x14fe98","00 00 A0 E3 1E FF 2F E1");//[88]
+PATCH_LIB("libUE4.so","0x14feb0","00 00 A0 E3 1E FF 2F E1");//[89]
+PATCH_LIB("libUE4.so","0x14fed8","00 00 A0 E3 1E FF 2F E1");//[90]
+PATCH_LIB("libUE4.so","0x14ff14","00 00 A0 E3 1E FF 2F E1");//[91]
+PATCH_LIB("libUE4.so","0x14ff30","00 00 A0 E3 1E FF 2F E1");//[92]
+PATCH_LIB("libUE4.so","0x14ff58","00 00 A0 E3 1E FF 2F E1");//[93]
+PATCH_LIB("libUE4.so","0x14ff74","00 00 A0 E3 1E FF 2F E1");//[94]
+PATCH_LIB("libUE4.so","0x14ffa0","00 00 A0 E3 1E FF 2F E1");//[95]
+PATCH_LIB("libUE4.so","0x14ffc0","00 00 A0 E3 1E FF 2F E1");//[96]
+PATCH_LIB("libUE4.so","0x14ffec","00 00 A0 E3 1E FF 2F E1");//[97]
+PATCH_LIB("libUE4.so","0x14fffc","00 00 A0 E3 1E FF 2F E1");//[98]
+PATCH_LIB("libUE4.so","0x15000c","00 00 A0 E3 1E FF 2F E1");//[99]
+PATCH_LIB("libUE4.so","0x1500d4","00 00 A0 E3 1E FF 2F E1");//[100]
+PATCH_LIB("libUE4.so","0x150134","00 00 A0 E3 1E FF 2F E1");//[101]
+PATCH_LIB("libUE4.so","0x150138","00 00 A0 E3 1E FF 2F E1");//[102]
+PATCH_LIB("libUE4.so","0x15013c","00 00 A0 E3 1E FF 2F E1");//[103]
+PATCH_LIB("libUE4.so","0x15014c","00 00 A0 E3 1E FF 2F E1");//[104]
+PATCH_LIB("libUE4.so","0x15017c","00 00 A0 E3 1E FF 2F E1");//[105]
+PATCH_LIB("libUE4.so","0x150184","00 00 A0 E3 1E FF 2F E1");//[106]
+PATCH_LIB("libUE4.so","0x150190","00 00 A0 E3 1E FF 2F E1");//[107]
+PATCH_LIB("libUE4.so","0x1501b0","00 00 A0 E3 1E FF 2F E1");//[108]
+PATCH_LIB("libUE4.so","0x1501f0","00 00 A0 E3 1E FF 2F E1");//[109]
+PATCH_LIB("libUE4.so","0x15021c","00 00 A0 E3 1E FF 2F E1");//[110]
+PATCH_LIB("libUE4.so","0x150234","00 00 A0 E3 1E FF 2F E1");//[111]
+PATCH_LIB("libUE4.so","0x15023c","00 00 A0 E3 1E FF 2F E1");//[112]
+PATCH_LIB("libUE4.so","0x150260","00 00 A0 E3 1E FF 2F E1");//[113]
+PATCH_LIB("libUE4.so","0x15027c","00 00 A0 E3 1E FF 2F E1");//[114]
+PATCH_LIB("libUE4.so","0x1502c0","00 00 A0 E3 1E FF 2F E1");//[115]
+PATCH_LIB("libUE4.so","0x1502d4","00 00 A0 E3 1E FF 2F E1");//[116]
+PATCH_LIB("libUE4.so","0x15034c","00 00 A0 E3 1E FF 2F E1");//[117]
+PATCH_LIB("libUE4.so","0x150390","00 00 A0 E3 1E FF 2F E1");//[118]
+PATCH_LIB("libUE4.so","0x1503a4","00 00 A0 E3 1E FF 2F E1");//[119]
+PATCH_LIB("libUE4.so","0x1503a8","00 00 A0 E3 1E FF 2F E1");//[120]
+PATCH_LIB("libUE4.so","0x1503d0","00 00 A0 E3 1E FF 2F E1");//[121]
+PATCH_LIB("libUE4.so","0x1503e8","00 00 A0 E3 1E FF 2F E1");//[122]
+PATCH_LIB("libUE4.so","0x150450","00 00 A0 E3 1E FF 2F E1");//[123]
+PATCH_LIB("libUE4.so","0x150454","00 00 A0 E3 1E FF 2F E1");//[124]
+PATCH_LIB("libUE4.so","0x150460","00 00 A0 E3 1E FF 2F E1");//[125]
+PATCH_LIB("libUE4.so","0x15046c","00 00 A0 E3 1E FF 2F E1");//[126]
+PATCH_LIB("libUE4.so","0x150484","00 00 A0 E3 1E FF 2F E1");//[127]
+PATCH_LIB("libUE4.so","0x150490","00 00 A0 E3 1E FF 2F E1");//[128]
+PATCH_LIB("libUE4.so","0x1504c0","00 00 A0 E3 1E FF 2F E1");//[129]
+PATCH_LIB("libUE4.so","0x1504d8","00 00 A0 E3 1E FF 2F E1");//[130]
+PATCH_LIB("libUE4.so","0x1504e4","00 00 A0 E3 1E FF 2F E1");//[131]
+PATCH_LIB("libUE4.so","0x150528","00 00 A0 E3 1E FF 2F E1");//[132]
+PATCH_LIB("libUE4.so","0x15052c","00 00 A0 E3 1E FF 2F E1");//[133]
+PATCH_LIB("libUE4.so","0x150548","00 00 A0 E3 1E FF 2F E1");//[134]
+PATCH_LIB("libUE4.so","0x150664","00 00 A0 E3 1E FF 2F E1");//[135]
+PATCH_LIB("libUE4.so","0x15067c","00 00 A0 E3 1E FF 2F E1");//[136]
+PATCH_LIB("libUE4.so","0x150688","00 00 A0 E3 1E FF 2F E1");//[137]
+PATCH_LIB("libUE4.so","0x15071c","00 00 A0 E3 1E FF 2F E1");//[138]
+PATCH_LIB("libUE4.so","0x150720","00 00 A0 E3 1E FF 2F E1");//[139]
+PATCH_LIB("libUE4.so","0x150724","00 00 A0 E3 1E FF 2F E1");//[140]
+PATCH_LIB("libUE4.so","0x150728","00 00 A0 E3 1E FF 2F E1");//[141]
+PATCH_LIB("libUE4.so","0x15072c","00 00 A0 E3 1E FF 2F E1");//[142]
+PATCH_LIB("libUE4.so","0x150750","00 00 A0 E3 1E FF 2F E1");//[143]
+PATCH_LIB("libUE4.so","0x15076c","00 00 A0 E3 1E FF 2F E1");//[144]
+PATCH_LIB("libUE4.so","0x150770","00 00 A0 E3 1E FF 2F E1");//[145]
+PATCH_LIB("libUE4.so","0x15077c","00 00 A0 E3 1E FF 2F E1");//[146]
+PATCH_LIB("libUE4.so","0x150804","00 00 A0 E3 1E FF 2F E1");//[147]
+PATCH_LIB("libUE4.so","0x150808","00 00 A0 E3 1E FF 2F E1");//[148]
+PATCH_LIB("libUE4.so","0x15082c","00 00 A0 E3 1E FF 2F E1");//[149]
+PATCH_LIB("libUE4.so","0x1508b0","00 00 A0 E3 1E FF 2F E1");//[150]
+PATCH_LIB("libUE4.so","0x1508f0","00 00 A0 E3 1E FF 2F E1");//[151]
+PATCH_LIB("libUE4.so","0x150928","00 00 A0 E3 1E FF 2F E1");//[152]
+PATCH_LIB("libUE4.so","0x15092c","00 00 A0 E3 1E FF 2F E1");//[153]
+PATCH_LIB("libUE4.so","0x150930","00 00 A0 E3 1E FF 2F E1");//[154]
+PATCH_LIB("libUE4.so","0x150960","00 00 A0 E3 1E FF 2F E1");//[155]
+PATCH_LIB("libUE4.so","0x150990","00 00 A0 E3 1E FF 2F E1");//[156]
+PATCH_LIB("libUE4.so","0x1509cc","00 00 A0 E3 1E FF 2F E1");//[157]
+PATCH_LIB("libUE4.so","0x1509d8","00 00 A0 E3 1E FF 2F E1");//[158]
+PATCH_LIB("libUE4.so","0x150a4c","00 00 A0 E3 1E FF 2F E1");//[159]
+PATCH_LIB("libUE4.so","0x150afc","00 00 A0 E3 1E FF 2F E1");//[160]
+PATCH_LIB("libUE4.so","0x150b10","00 00 A0 E3 1E FF 2F E1");//[161]
+PATCH_LIB("libUE4.so","0x150b14","00 00 A0 E3 1E FF 2F E1");//[162]
+PATCH_LIB("libUE4.so","0x150b50","00 00 A0 E3 1E FF 2F E1");//[163]
+PATCH_LIB("libUE4.so","0x150b8c","00 00 A0 E3 1E FF 2F E1");//[164]
+PATCH_LIB("libUE4.so","0x150bd8","00 00 A0 E3 1E FF 2F E1");//[165]
+PATCH_LIB("libUE4.so","0x150c10","00 00 A0 E3 1E FF 2F E1");//[166]
+PATCH_LIB("libUE4.so","0x150c1c","00 00 A0 E3 1E FF 2F E1");//[167]
+PATCH_LIB("libUE4.so","0x150c98","00 00 A0 E3 1E FF 2F E1");//[168]
+PATCH_LIB("libUE4.so","0x150cb4","00 00 A0 E3 1E FF 2F E1");//[169]
+PATCH_LIB("libUE4.so","0x150cd0","00 00 A0 E3 1E FF 2F E1");//[170]
+PATCH_LIB("libUE4.so","0x150cfc","00 00 A0 E3 1E FF 2F E1");//[171]
+PATCH_LIB("libUE4.so","0x150d1c","00 00 A0 E3 1E FF 2F E1");//[172]
+PATCH_LIB("libUE4.so","0x150d28","00 00 A0 E3 1E FF 2F E1");//[173]
+PATCH_LIB("libUE4.so","0x20bb48","00 00 A0 E3 1E FF 2F E1");//[174]
+PATCH_LIB("libUE4.so","0x20bb68","00 00 A0 E3 1E FF 2F E1");//[175]
+PATCH_LIB("libUE4.so","0x20bb94","00 00 A0 E3 1E FF 2F E1");//[176]
+PATCH_LIB("libUE4.so","0x20bc00","00 00 A0 E3 1E FF 2F E1");//[177]
+PATCH_LIB("libUE4.so","0x20bc20","00 00 A0 E3 1E FF 2F E1");//[178]
+PATCH_LIB("libUE4.so","0x20bc4c","00 00 A0 E3 1E FF 2F E1");//[179]
+PATCH_LIB("libUE4.so","0x20bccc","00 00 A0 E3 1E FF 2F E1");//[180]
+PATCH_LIB("libUE4.so","0x20bce4","00 00 A0 E3 1E FF 2F E1");//[181]
+PATCH_LIB("libUE4.so","0x20bd10","00 00 A0 E3 1E FF 2F E1");//[182]
+PATCH_LIB("libUE4.so","0x20bd8c","00 00 A0 E3 1E FF 2F E1");//[183]
+PATCH_LIB("libUE4.so","0x20bda0","00 00 A0 E3 1E FF 2F E1");//[184]
+PATCH_LIB("libUE4.so","0x20bde8","00 00 A0 E3 1E FF 2F E1");//[185]
+PATCH_LIB("libUE4.so","0x20c43c","00 00 A0 E3 1E FF 2F E1");//[186]
+PATCH_LIB("libUE4.so","0x20c45c","00 00 A0 E3 1E FF 2F E1");//[187]
+PATCH_LIB("libUE4.so","0x20c488","00 00 A0 E3 1E FF 2F E1");//[188]
+PATCH_LIB("libUE4.so","0x20c4a8","00 00 A0 E3 1E FF 2F E1");//[189]
+PATCH_LIB("libUE4.so","0x20c4d8","00 00 A0 E3 1E FF 2F E1");//[190]
+PATCH_LIB("libUE4.so","0x20c4f4","00 00 A0 E3 1E FF 2F E1");//[191]
+PATCH_LIB("libUE4.so","0x20c518","00 00 A0 E3 1E FF 2F E1");//[192]
+PATCH_LIB("libUE4.so","0x20c528","00 00 A0 E3 1E FF 2F E1");//[193]
+PATCH_LIB("libUE4.so","0xb65e0","00 00 A0 E3 1E FF 2F E1");//[140]
+PATCH_LIB("libUE4.so","0xb6638","00 00 A0 E3 1E FF 2F E1");//[141]
+PATCH_LIB("libUE4.so","0xb668c","00 00 A0 E3 1E FF 2F E1");//[142]
+PATCH_LIB("libUE4.so","0xb66f8","00 00 A0 E3 1E FF 2F E1");//[143]
+PATCH_LIB("libUE4.so","0xb6750","00 00 A0 E3 1E FF 2F E1");//[144]
+PATCH_LIB("libUE4.so","0xb67bc","00 00 A0 E3 1E FF 2F E1");//[145]
+PATCH_LIB("libUE4.so","0xb67d4","00 00 A0 E3 1E FF 2F E1");//[146]
+PATCH_LIB("libUE4.so","0xb67dc","00 00 A0 E3 1E FF 2F E1");//[147]
+PATCH_LIB("libUE4.so","0xb6818","00 00 A0 E3 1E FF 2F E1");//[148]
+PATCH_LIB("libUE4.so","0xb6864","00 00 A0 E3 1E FF 2F E1");//[149]
+PATCH_LIB("libUE4.so","0xb6878","00 00 A0 E3 1E FF 2F E1");//[150]
+PATCH_LIB("libUE4.so","0xb68c4","00 00 A0 E3 1E FF 2F E1");//[151]
+PATCH_LIB("libUE4.so","0xb6934","00 00 A0 E3 1E FF 2F E1");//[152]
+PATCH_LIB("libUE4.so","0xb6a3c","00 00 A0 E3 1E FF 2F E1");//[153]
+PATCH_LIB("libUE4.so","0xb6a70","00 00 A0 E3 1E FF 2F E1");//[154]
+PATCH_LIB("libUE4.so","0xb6ac8","00 00 A0 E3 1E FF 2F E1");//[155]
+PATCH_LIB("libUE4.so","0xb6af4","00 00 A0 E3 1E FF 2F E1");//[156]
+PATCH_LIB("libUE4.so","0xb6b48","00 00 A0 E3 1E FF 2F E1");//[157]
+PATCH_LIB("libUE4.so","0xb6b50","00 00 A0 E3 1E FF 2F E1");//[158]
+PATCH_LIB("libUE4.so","0xb6b84","00 00 A0 E3 1E FF 2F E1");//[159]
+PATCH_LIB("libUE4.so","0xb6b8c","00 00 A0 E3 1E FF 2F E1");//[160]
+PATCH_LIB("libUE4.so","0xb6b90","00 00 A0 E3 1E FF 2F E1");//[161]
+PATCH_LIB("libUE4.so","0xb6ba0","00 00 A0 E3 1E FF 2F E1");//[162]
+PATCH_LIB("libUE4.so","0xb6ba8","00 00 A0 E3 1E FF 2F E1");//[163]
+PATCH_LIB("libUE4.so","0xb6bb0","00 00 A0 E3 1E FF 2F E1");//[164]
+PATCH_LIB("libUE4.so","0xb6bc0","00 00 A0 E3 1E FF 2F E1");//[165]
+PATCH_LIB("libUE4.so","0xb6bc8","00 00 A0 E3 1E FF 2F E1");//[166]
+PATCH_LIB("libUE4.so","0xb6bd0","00 00 A0 E3 1E FF 2F E1");//[167]
+PATCH_LIB("libUE4.so","0xb6bec","00 00 A0 E3 1E FF 2F E1");//[168]
+PATCH_LIB("libUE4.so","0xb6bf8","00 00 A0 E3 1E FF 2F E1");//[169]
+PATCH_LIB("libUE4.so","0xb6c20","00 00 A0 E3 1E FF 2F E1");//[170]
+PATCH_LIB("libUE4.so","0xb6c50","00 00 A0 E3 1E FF 2F E1");//[171]
+PATCH_LIB("libUE4.so","0xb6c58","00 00 A0 E3 1E FF 2F E1");//[172]
+PATCH_LIB("libUE4.so","0xb6ca4","00 00 A0 E3 1E FF 2F E1");//[173]
+PATCH_LIB("libUE4.so","0xb6cdc","00 00 A0 E3 1E FF 2F E1");//[174]
+PATCH_LIB("libUE4.so","0xb6cec","00 00 A0 E3 1E FF 2F E1");//[175]
+PATCH_LIB("libUE4.so","0xb6cf0","00 00 A0 E3 1E FF 2F E1");//[176]
+PATCH_LIB("libUE4.so","0xb6d04","00 00 A0 E3 1E FF 2F E1");//[177]
+PATCH_LIB("libUE4.so","0xb6d10","00 00 A0 E3 1E FF 2F E1");//[178]
+PATCH_LIB("libUE4.so","0xb6d14","00 00 A0 E3 1E FF 2F E1");//[179]
+PATCH_LIB("libUE4.so","0xb6d18","00 00 A0 E3 1E FF 2F E1");//[180]
+PATCH_LIB("libUE4.so","0xb6d24","00 00 A0 E3 1E FF 2F E1");//[181]
+PATCH_LIB("libUE4.so","0xb6d30","00 00 A0 E3 1E FF 2F E1");//[182]
+PATCH_LIB("libUE4.so","0xb6d34","00 00 A0 E3 1E FF 2F E1");//[183]
+PATCH_LIB("libUE4.so","0x16485c","00 00 A0 E3 1E FF 2F E1");//[184]
+PATCH_LIB("libUE4.so","0x164878","00 00 A0 E3 1E FF 2F E1");//[185]
+PATCH_LIB("libUE4.so","0x1648a8","00 00 A0 E3 1E FF 2F E1");//[186]
+PATCH_LIB("libUE4.so","0x1648e0","00 00 A0 E3 1E FF 2F E1");//[187]
+PATCH_LIB("libUE4.so","0x16490c","00 00 A0 E3 1E FF 2F E1");//[188]
+PATCH_LIB("libUE4.so","0x164958","00 00 A0 E3 1E FF 2F E1");//[189]
+PATCH_LIB("libUE4.so","0x164988","00 00 A0 E3 1E FF 2F E1");//[190]
+PATCH_LIB("libUE4.so","0x1649f4","00 00 A0 E3 1E FF 2F E1");//[191]
+PATCH_LIB("libUE4.so","0x164a24","00 00 A0 E3 1E FF 2F E1");//[192]
+PATCH_LIB("libUE4.so","0x164a94","00 00 A0 E3 1E FF 2F E1");//[193]
+PATCH_LIB("libUE4.so","0x164ac4","00 00 A0 E3 1E FF 2F E1");//[194]
+PATCH_LIB("libUE4.so","0x164b38","00 00 A0 E3 1E FF 2F E1");//[195]
+PATCH_LIB("libUE4.so","0x164b68","00 00 A0 E3 1E FF 2F E1");//[196]
+PATCH_LIB("libUE4.so","0x164bdc","00 00 A0 E3 1E FF 2F E1");//[197]
+PATCH_LIB("libUE4.so","0x164c0c","00 00 A0 E3 1E FF 2F E1");//[198]
+PATCH_LIB("libUE4.so","0x164ce0","00 00 A0 E3 1E FF 2F E1");//[199]
+PATCH_LIB("libUE4.so","0x164d08","00 00 A0 E3 1E FF 2F E1");//[200]
+PATCH_LIB("libUE4.so","0x164d64","00 00 A0 E3 1E FF 2F E1");//[201]
+PATCH_LIB("libUE4.so","0x164d8c","00 00 A0 E3 1E FF 2F E1");//[202]
+PATCH_LIB("libUE4.so","0x164de4","00 00 A0 E3 1E FF 2F E1");//[203]
+PATCH_LIB("libUE4.so","0x164e0c","00 00 A0 E3 1E FF 2F E1");//[204]
+PATCH_LIB("libUE4.so","0x164e7c","00 00 A0 E3 1E FF 2F E1");//[205]
+PATCH_LIB("libUE4.so","0x164e98","00 00 A0 E3 1E FF 2F E1");//[206]
+PATCH_LIB("libUE4.so","0x164ecc","00 00 A0 E3 1E FF 2F E1");//[207]
+PATCH_LIB("libUE4.so","0x164ee4","00 00 A0 E3 1E FF 2F E1");//[208]
+PATCH_LIB("libUE4.so","0x164f40","00 00 A0 E3 1E FF 2F E1");//[209]
+PATCH_LIB("libUE4.so","0x164f68","00 00 A0 E3 1E FF 2F E1");//[210]
+PATCH_LIB("libUE4.so","0x164fc0","00 00 A0 E3 1E FF 2F E1");//[211]
+PATCH_LIB("libUE4.so","0x164fe8","00 00 A0 E3 1E FF 2F E1");//[212]
+PATCH_LIB("libUE4.so","0x165044","00 00 A0 E3 1E FF 2F E1");//[213]
+PATCH_LIB("libUE4.so","0x16506c","00 00 A0 E3 1E FF 2F E1");//[214]
+PATCH_LIB("libUE4.so","0x1650c4","00 00 A0 E3 1E FF 2F E1");//[215]
+PATCH_LIB("libUE4.so","0x1650ec","00 00 A0 E3 1E FF 2F E1");//[216]
+PATCH_LIB("libUE4.so","0x165160","00 00 A0 E3 1E FF 2F E1");//[217]
+PATCH_LIB("libUE4.so","0x165178","00 00 A0 E3 1E FF 2F E1");//[218]
+PATCH_LIB("libUE4.so","0x20af74","00 00 A0 E3 1E FF 2F E1");//[219]
+PATCH_LIB("libUE4.so","0x20af80","00 00 A0 E3 1E FF 2F E1");//[220]
+PATCH_LIB("libUE4.so","0x20afc0","00 00 A0 E3 1E FF 2F E1");//[221]
+PATCH_LIB("libUE4.so","0x20aff0","00 00 A0 E3 1E FF 2F E1");//[222]
+PATCH_LIB("libUE4.so","0x20b01c","00 00 A0 E3 1E FF 2F E1");//[223]
+PATCH_LIB("libUE4.so","0x20b02c","00 00 A0 E3 1E FF 2F E1");//[224]
+PATCH_LIB("libUE4.so","0x20b080","00 00 A0 E3 1E FF 2F E1");//[225]
+PATCH_LIB("libUE4.so","0x20b108","00 00 A0 E3 1E FF 2F E1");//[226]
+PATCH_LIB("libUE4.so","0x20b124","00 00 A0 E3 1E FF 2F E1");//[227]
+PATCH_LIB("libUE4.so","0x20b16c","00 00 A0 E3 1E FF 2F E1");//[228]
+PATCH_LIB("libUE4.so","0x20b18c","00 00 A0 E3 1E FF 2F E1");//[229]
+PATCH_LIB("libUE4.so","0x20b1c0","00 00 A0 E3 1E FF 2F E1");//[230]
+PATCH_LIB("libUE4.so","0x20b1c4","00 00 A0 E3 1E FF 2F E1");//[231]
+PATCH_LIB("libUE4.so","0x20b1fc","00 00 A0 E3 1E FF 2F E1");//[232]
+PATCH_LIB("libUE4.so","0x20b22c","00 00 A0 E3 1E FF 2F E1");//[233]
+PATCH_LIB("libUE4.so","0x20b2e0","00 00 A0 E3 1E FF 2F E1");//[234]
+PATCH_LIB("libUE4.so","0x20b304","00 00 A0 E3 1E FF 2F E1");//[235]
+PATCH_LIB("libUE4.so","0x20b310","00 00 A0 E3 1E FF 2F E1");//[236]
+PATCH_LIB("libUE4.so","0x20b33c","00 00 A0 E3 1E FF 2F E1");//[237]
+PATCH_LIB("libUE4.so","0x20b358","00 00 A0 E3 1E FF 2F E1");//[238]
+PATCH_LIB("libUE4.so","0x20b388","00 00 A0 E3 1E FF 2F E1");//[239]
+PATCH_LIB("libUE4.so","0x20b3e8","00 00 A0 E3 1E FF 2F E1");//[240]
+PATCH_LIB("libUE4.so","0x20b3fc","00 00 A0 E3 1E FF 2F E1");//[241]
+PATCH_LIB("libUE4.so","0x20b408","00 00 A0 E3 1E FF 2F E1");//[242]
+PATCH_LIB("libUE4.so","0x20b430","00 00 A0 E3 1E FF 2F E1");//[243]
+PATCH_LIB("libUE4.so","0x20b480","00 00 A0 E3 1E FF 2F E1");//[244]
+PATCH_LIB("libUE4.so","0x20b498","00 00 A0 E3 1E FF 2F E1");//[245]
+PATCH_LIB("libUE4.so","0x20b4b0","00 00 A0 E3 1E FF 2F E1");//[246]
+PATCH_LIB("libUE4.so","0x20b55c","00 00 A0 E3 1E FF 2F E1");//[247]
+PATCH_LIB("libUE4.so","0x20b66c","00 00 A0 E3 1E FF 2F E1");//[248]
+PATCH_LIB("libUE4.so","0x20b6a0","00 00 A0 E3 1E FF 2F E1");//[249]
+PATCH_LIB("libUE4.so","0x20b6b8","00 00 A0 E3 1E FF 2F E1");//[250]
+PATCH_LIB("libUE4.so","0x20b6dc","00 00 A0 E3 1E FF 2F E1");//[251]
+PATCH_LIB("libUE4.so","0x20b724","00 00 A0 E3 1E FF 2F E1");//[252]
+PATCH_LIB("libUE4.so","0x20b73c","00 00 A0 E3 1E FF 2F E1");//[253]
+PATCH_LIB("libUE4.so","0x20b748","00 00 A0 E3 1E FF 2F E1");//[254]
+PATCH_LIB("libUE4.so","0x20b814","00 00 A0 E3 1E FF 2F E1");//[255]
+PATCH_LIB("libUE4.so","0x20b910","00 00 A0 E3 1E FF 2F E1");//[256]
+PATCH_LIB("libUE4.so","0x20b914","00 00 A0 E3 1E FF 2F E1");//[257]
+PATCH_LIB("libUE4.so","0x20b938","00 00 A0 E3 1E FF 2F E1");//[258]
+PATCH_LIB("libUE4.so","0x20ba0c","00 00 A0 E3 1E FF 2F E1");//[259]
+PATCH_LIB("libUE4.so","0x20ba3c","00 00 A0 E3 1E FF 2F E1");//[260]
+PATCH_LIB("libUE4.so","0x20ba64","00 00 A0 E3 1E FF 2F E1");//[261]
+PATCH_LIB("libUE4.so","0x20ba78","00 00 A0 E3 1E FF 2F E1");//[262]
+PATCH_LIB("libUE4.so","0x20ba9c","00 00 A0 E3 1E FF 2F E1");//[263]
+PATCH_LIB("libUE4.so","0x20bad4","00 00 A0 E3 1E FF 2F E1");//[264]
+PATCH_LIB("libUE4.so","0x20bae8","00 00 A0 E3 1E FF 2F E1");//[265]
+PATCH_LIB("libUE4.so","0x20baec","00 00 A0 E3 1E FF 2F E1");//[266]
+PATCH_LIB("libUE4.so","0x20bb34","00 00 A0 E3 1E FF 2F E1");//[267]
+PATCH_LIB("libUE4.so","0x20bbc0","00 00 A0 E3 1E FF 2F E1");//[268]
+PATCH_LIB("libUE4.so","0x20bbfc","00 00 A0 E3 1E FF 2F E1");//[269]
+PATCH_LIB("libUE4.so","0x20bc24","00 00 A0 E3 1E FF 2F E1");//[270]
+PATCH_LIB("libUE4.so","0x20bc28","00 00 A0 E3 1E FF 2F E1");//[271]
+PATCH_LIB("libUE4.so","0x20bcc4","00 00 A0 E3 1E FF 2F E1");//[272]
+PATCH_LIB("libUE4.so","0x20bcdc","00 00 A0 E3 1E FF 2F E1");//[273]
+PATCH_LIB("libUE4.so","0x20bd1c","00 00 A0 E3 1E FF 2F E1");//[274]
+PATCH_LIB("libUE4.so","0x20bd7c","00 00 A0 E3 1E FF 2F E1");//[275]
+PATCH_LIB("libUE4.so","0x2a0b7c","00 00 A0 E3 1E FF 2F E1");//[276]
+PATCH_LIB("libUE4.so","0x2a0bb8","00 00 A0 E3 1E FF 2F E1");//[277]
+PATCH_LIB("libUE4.so","0x2a0c60","00 00 A0 E3 1E FF 2F E1");//[278]
+PATCH_LIB("libUE4.so","0x2a0ca0","00 00 A0 E3 1E FF 2F E1");//[279]
+PATCH_LIB("libUE4.so","0x2a0eb4","00 00 A0 E3 1E FF 2F E1");//[280]
+PATCH_LIB("libUE4.so","0x2a0f50","00 00 A0 E3 1E FF 2F E1");//[281]
+PATCH_LIB("libUE4.so","0x2a0f6c","00 00 A0 E3 1E FF 2F E1");//[282]
+PATCH_LIB("libUE4.so","0x2a12c8","00 00 A0 E3 1E FF 2F E1");//[283]
+PATCH_LIB("libUE4.so","0x2a1358","00 00 A0 E3 1E FF 2F E1");//[284]
+PATCH_LIB("libUE4.so","0x2a1378","00 00 A0 E3 1E FF 2F E1");//[285]
+PATCH_LIB("libUE4.so","0x2a1394","00 00 A0 E3 1E FF 2F E1");//[286]
+PATCH_LIB("libUE4.so","0x2a14dc","00 00 A0 E3 1E FF 2F E1");//[287]
+PATCH_LIB("libUE4.so","0x2a1578","00 00 A0 E3 1E FF 2F E1");//[288]
+PATCH_LIB("libUE4.so","0x2a1594","00 00 A0 E3 1E FF 2F E1");//[289]
+PATCH_LIB("libUE4.so","0x2a18f0","00 00 A0 E3 1E FF 2F E1");//[290]
+PATCH_LIB("libUE4.so","0x2a19c4","00 00 A0 E3 1E FF 2F E1");//[291]
+PATCH_LIB("libUE4.so","0x2a1b58","00 00 A0 E3 1E FF 2F E1");//[292]
+PATCH_LIB("libUE4.so","0x2a1bf4","00 00 A0 E3 1E FF 2F E1");//[293]
+PATCH_LIB("libUE4.so","0x2a1c10","00 00 A0 E3 1E FF 2F E1");//[294]
+PATCH_LIB("libUE4.so","0x2a1ccc","00 00 A0 E3 1E FF 2F E1");//[295]
+PATCH_LIB("libUE4.so", "0xD6A114", "00 20 70 47"); 
+PATCH_LIB("libUE4.so", "0x8604C70", "00 20 70 47"); 
+PATCH_LIB("libUE4.so","0xD69354", "00 20 70 47");
+PATCH_LIB("libUE4.so","0xD69364", "00 20 70 47"); 
+PATCH_LIB("libUE4.so","0xD69374", "00 20 70 47"); 
+PATCH_LIB("libUE4.so","0xD69384", "00 20 70 47"); 
+PATCH_LIB("libUE4.so","0xD69394", "00 20 70 47");
+PATCH_LIB("libUE4.so","0xD693A4", "00 20 70 47"); 
+PATCH_LIB("libUE4.so","0xD693B4", "00 20 70 47"); 
+PATCH_LIB("libUE4.so","0xD693C4", "00 20 70 47"); 
+PATCH_LIB("libUE4.so","0xD693D4", "00 20 70 47"); 
+PATCH_LIB("libUE4.so","0xD693E4", "00 20 70 47");
+PATCH_LIB("libUE4.so","0xD693F4", "00 20 70 47"); 
+PATCH_LIB("libUE4.so","0xD69404", "00 20 70 47"); 
+PATCH_LIB("libUE4.so","0xD69414", "00 20 70 47"); 
+PATCH_LIB("libUE4.so","0xD69434", "00 20 70 47");
+PATCH_LIB("libUE4.so","0xD69444", "00 20 70 47"); 
+PATCH_LIB("libUE4.so","0xD69454", "00 20 70 47");
+PATCH_LIB("libUE4.so","0xD69464", "00 20 70 47");
+PATCH_LIB("libUE4.so","0xD69474", "00 20 70 47");
+PATCH_LIB("libUE4.so","0xD69484", "00 20 70 47");
+PATCH_LIB("libUE4.so","0xD69494", "00 20 70 47");
+PATCH_LIB("libUE4.so","0xD694A4", "00 20 70 47");
+}
+    
+if(On){
+    g_LocalPlayer->CharacterMovement->MaxAcceleration = 9999999.0f; 
+g_LocalPlayer->CustomTimeDilation = 0.7f; 
+g_LocalPlayer->EnergySpeedScale = 6.0f;
+g_LocalPlayer->CharacterMovement->JumpZVelocity = 2200.0f; 
+g_LocalPlayer->CharacterMovement->bMaintainHorizontalGroundVelocity = true; 
+  }if(Of){
+   g_LocalPlayer->CharacterMovement->MaxAcceleration = 10000.828f; 
+g_LocalPlayer->CustomTimeDilation = 1.0f; 
+g_LocalPlayer->EnergySpeedScale = 1.0f;
+   g_LocalPlayer->CharacterMovement->bMaintainHorizontalGroundVelocity = false; 
+g_LocalPlayer->CharacterMovement->JumpZVelocity = 500.0f; 
+  }
 	 if (LobbyBy) {
 MemoryPatch::createWithHex("libanogs.so",0x4CE40, "00 20 70 47").Modify();
             	}   
@@ -1038,44 +2045,23 @@ MemoryPatch::createWithHex("libanogs.so",0x4CE40, "00 20 70 47").Modify();
     if (HIDEESP) {
 
             auto Actors = getActors();
-
+auto Actor = getActors();
     int totalEnemies = 0, totalBots = 0;
 
     ASTExtraPlayerCharacter *localPlayer = 0;
     ASTExtraPlayerController *localController = 0;
     
 if (Config.AimBot.Enable) {
-            draw->AddText({((float) density / 10.0f), 70}, IM_COL32(0, 255, 0, 255),
+            draw->AddText({((float) density / 50.0f), 70}, IM_COL32(0, 255, 0, 255),
                           "AimSimukation 2.0 ~ Enable");
             }else{
-            draw->AddText({((float) density / 10.0f), 70}, IM_COL32(255, 0, 0, 255),
+            draw->AddText({((float) density / 50.0f), 70}, IM_COL32(255, 0, 0, 255),
                           "AimSimukation 2.0 ~ Disable");
         }
 
-draw->AddText(NULL, ((float) density / 15.0f),{(float) glWidth / 150 + glWidth / 20,610},IM_COL32(0, 0, 255, 255),
-                          "TELEGRAM - @TRSHACK");
-/*draw->AddText(NULL, ((float) density / 15.0f),{(float) glWidth / 150 + glWidth / 20,640},IM_COL32(0,255,255, 255),
-                          "For FEEDBACK Hack Contact to @Owner_Admnn");*/
-	
-	
-		
-/* draw->AddText(NULL, ((float) density / 15.0f),{(float) glWidth / 2 + glWidth / 30,15},IM_COL32(0, 255, 0, 250),
-                            " EXPIRY KEY :-  ");
-    
-draw->AddText(NULL, ((float) density / 15.0f),{(float) glWidth / 2 + glWidth / 6,15},IM_COL32(255, 0, 0, 250),EXP.c_str());*/
- 
-
-      
-
-//draw->AddText(NULL, ((float) density / 20.0f),{(float) glWidth / 180 + glWidth / 40,200}, IM_COL32(255,255,0, 255),floating.c_str());
-        /*if (Config.Bypass) {
-            draw->AddText({((float) density / 10.0f), 40}, IM_COL32(0, 255, 0, 255),
-                          "BYPASS ON");
-			}else{
-		draw->AddText({((float) density / 10.0f), 40}, IM_COL32(255, 0, 0, 255),
-                          "BYPASS OFF");
-        }*/     
-
+draw->AddText(NULL, ((float) density / 10.0f),{(float) glWidth / 10 + glWidth / 20,610},IM_COL32(255, 255, 255, 255),
+                          "");
+                          
     for (int i = 0; i < Actors.size(); i++) {
         auto Actor = Actors[i];
         if (isObjectInvalid(Actor))
@@ -1100,6 +2086,7 @@ draw->AddText(NULL, ((float) density / 15.0f),{(float) glWidth / 2 + glWidth / 6
                 }
             }
         }
+
 
 
         if (localPlayer) {
@@ -1135,7 +2122,7 @@ draw->AddText(NULL, ((float) density / 15.0f),{(float) glWidth / 2 + glWidth / 6
                 }
 
                 //Aimbot//
-                
+
                 //ايم بوت
 							 if (Config.AimBot.Less) {
                     auto WeaponManagerComponent = localPlayer->WeaponManagerComponent;
@@ -1400,7 +2387,7 @@ bool shit = false;
            if (WeaponId) {
             std::string s;
             s += CurrentWeaponReplicated->GetWeaponName().ToString();
-            auto textSize = ImGui::CalcTextSize2(s.c_str(), 0, ((float) density / 30.0f));
+            auto textSize = ImGui::CalcTextSize(s.c_str(), 0, ((float) density / 30.0f));
             //draw->AddText(NULL, ((float) density / 30.0f), {RootPosSC.x - (textSize.x / 2), RootPosSC.y}, IM_COL32(255, 255, 255, 255), s.c_str());
            }
           }
@@ -1568,59 +2555,55 @@ bool out = false;
                                         s += Player->PlayerName.ToString();
                                     }
                                     draw->AddText(NULL, 15.f, ImVec2(headPosSC.x  + a, headPosSC.y - 35.0f), NameColor, s.c_str());
-                                }*/
-                                if (Config.PlayerESP.Health) {
-                                                int CurHP = (int) std::max(0, std::min(
-                                                        (int) Player->Health,
-                                                        (int) Player->HealthMax));
-                                                int MaxHP = (int) Player->HealthMax;
+                                }*/   
+                                if (Config.PlayerESP.Health) { 
+                                
+       int CurHP = (int) std::max(0, std::min((int) Player->Health,100));
+ int MaxHP = 100;
+            
 
-                                            
-														
-												  long HPColor;
+              long HPColor;
                                                     if (Player->Health < 25)
-                                                       HPColor = IM_COL32(0, 203, 255, 110);
+                                                       HPColor = GetRandomColorByIndex(Player->TeamID);
                                                  else if (Player->Health < 50)
-                                                       HPColor = IM_COL32(255, 0, 233, 120);
+                                                       HPColor = GetRandomColorByIndex(Player->TeamID);
                                                  else if ( Player->Health < 75)
-                                                       HPColor = IM_COL32(255, 0, 233, 120);
+                                                       HPColor = GetRandomColorByIndex(Player->TeamID);
                                                   else
-                                                       HPColor = SCOLO;
+                                                     
+                                                       
+                                                       
+                                                       
+                           //             int CurHP = (int) std::max(0, std::min((int) Player->Health,100));
+ 
+    if (Player->Health == 0.0f && !Player->bDead) {//--<knocked
 
-                                                //if (Config.PlayerESP.ShowKnockedHealth) {
-                                                if (Player->Health == 0.0f && !Player->bDead) {
-                                                   SCOLOR = IM_COL32(250, 0, 0, 80);
-                                                   
-                                                    HPColor = IM_COL32(255, 0, 0, 110);
+                                                    HPColor = GetRandomColorByIndex(Player->TeamID);
 
-                                                    CurHP = Player->NearDeathBreath;
+                                                    CurHP = (int) std::max(0, std::min((int) Player->NearDeathBreath, 100));
+             
                                                     if (Player->NearDeatchComponent) {
-                                                        MaxHP = Player->NearDeatchComponent->BreathMax;
-                                                    }
-                                                }
-                                                //}
-
-                                                float boxWidth = density / 1.6f;
+                                                    MaxHP = 100;// Player->NearDeatchComponent->BreathMax; <-- you can replace to it
+                                                    }}
+float boxWidth = density / 1.6f;
                                                 boxWidth -= std::min(
                                                         ((boxWidth / 2) / 0.001f) * Distance,
                                                         boxWidth / 2);
                                                 float boxHeight = boxWidth * 0.15f;
 
 
-                                                ImVec2 vStart = {headPosSC.x - (boxWidth / 2),
-                                                                 headPosSC.y -
-                                                                 (boxHeight * 2.001f)};
+                                                ImVec2 vStart = {headPosSC.x - (boxWidth / 2), headPosSC.y - (boxHeight * 2.001f)};
 
-                                                ImVec2 vEndFilled = {
-                                                        vStart.x + (CurHP * boxWidth / MaxHP),
-                                                        vStart.y + boxHeight};
-                                                ImVec2 vEndRect = {vStart.x + boxWidth,
-                                                                   vStart.y + boxHeight};
-
-                                                draw->AddRectFilled(vStart, vEndFilled, HPColor,
-                                                                    10.0f);
+                                                ImVec2 vEndFilled = {vStart.x + (CurHP * boxWidth / MaxHP), 
+                                 vStart.y + boxHeight};
+            
+                                                ImVec2 vEndRect = {vStart.x + boxWidth, vStart.y + boxHeight};
+                   
+            draw->AddRectFilledMultiColor(vStart, vEndFilled, GetRandomColorByIndex(Player->TeamID), HPColor, HPColor, GetRandomColorByIndex(Player->TeamID));
+            
                                                 draw->AddRect(vStart, vEndRect,
-                                                              SCOLO, 10.0f);
+                                                              1.0f);
+                                            
                                             }
                               if (Config.PlayerESP.Name || Config.PlayerESP.Name || Config.PlayerESP.Distance) {
                                     float boxWidth = density / 1.6f; // width
@@ -1658,7 +2641,7 @@ bool out = false;
                                     }
                          
 												  
-							auto textSize = ImGui::CalcTextSize2(s.c_str(), 0, ((float) density / 30.0f));
+							auto textSize = ImGui::CalcTextSize(s.c_str(), 0, ((float) density / 30.0f));
                             draw->AddText(NULL, ((float) density / 30.0f), {headPosSC.x - (textSize.x / 2), headPosSC.y - (boxHeight * 1.83f)}, IM_COL32(255, 255, 255, 255), s.c_str());
 
                         }
@@ -1751,7 +2734,7 @@ bool out = false;
 								s += " m";
 								std::string t;
 								t += "!!!...MOVE  MOVE  MOVE...!!!";
-								auto textSize = ImGui::CalcTextSize2(t.c_str(), 0, ((float) density / 17.0f));
+								auto textSize = ImGui::CalcTextSize(t.c_str(), 0, ((float) density / 17.0f));
 								draw->AddText(NULL, ((float) density / 17.0f), ImVec2(glWidth / 2 - (textSize.x / 2), 110), IM_COL32(255, 0, 0, 220), t.c_str());
 								draw->AddText(NULL, ((float) density / 25.0f), {grenadePos.X - 10, grenadePos.Y - 10}, IM_COL32(0, 0, 255, 255), s.c_str());
 								draw->AddCircleFilled(ImVec2(grenadePos.X, grenadePos.Y), glHeight / (float) 1080 * 20, IM_COL32(255, 0, 0, 255), 0);
@@ -1805,19 +2788,22 @@ bool out = false;
                              }
                             }}} 
 
-         g_LocalController = localController;
-    g_LocalPlayer = localPlayer;
+                                    
+g_LocalController = localController;
+    g_LocalPlayer = localPlayer;
+    
+int TotalCount = totalEnemies;
+ImGui::SetNextWindowPos(ImVec2(static_cast<float>(glWidth) / 2, 50), ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
+ImGui::SetNextWindowSize(ImVec2(230.0f, 40.0f));
+ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 20.0f);
+ImGui::Begin("PonCount", 0, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove);
+ImGui::SetCursorPos(ImVec2(10, 10));
+ImGui::Text("    P: %d", totalEnemies);
+   ImGui::SameLine();
+ImGui::Text(" BEKA ENGINE  B: %d", totalBots);
+ImGui::End();
+ImGui::PopStyleVar();	
 
-    g_LocalController = localController;
-    g_LocalPlayer = localPlayer;
-
-       ImGui::GetForegroundDrawList()->AddRectFilled({glWidth /2-50,40},{glWidth /2,80},ImColor(255, 0, 0,110));
-       ImGui::GetForegroundDrawList()->AddRectFilled({glWidth /2+50,40},{glWidth /2,80},ImColor(3, 255, 40,110)); 
-       sprintf(extras, "%d", totalEnemies);
-       ImGui::GetForegroundDrawList()->AddText({glWidth /2-35,45}, ImColor(255,255,255), extras);
-       sprintf(extras, "%d", totalBots);
-       ImGui::GetForegroundDrawList()->AddText({glWidth /2+15,45}, ImColor(255,255,255), extras);
-                    
 
 	               if (Config.AimBot.Enable) {
 draw->AddCircle(ImVec2(glWidth / 2.0f, glHeight / 2.0f), Config.AimBot.Cross*0.5f, ToColor(Config.ColorsESP.Fov), 100, 1.0f);
@@ -1992,7 +2978,7 @@ std::string Login(const char *user_key) {
         curl = curl_easy_init();
         if (curl) {
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, /*POST*/ StrEnc(",IL=", "\x7C\x06\x1F\x69", 4).c_str());
-        std::string sRedLink = "https://freepanal.000webhostapp.com/connect";
+        std::string sRedLink = "https://free.suhani.site/connect";
 
         curl_easy_setopt(curl, CURLOPT_URL, sRedLink.c_str());
 
@@ -2032,7 +3018,7 @@ std::string Login(const char *user_key) {
                         auth += "-";
                         auth += /*Vm8Lk7Uj2JmsjCPVPVjrLa7zgfx3uz9E*/ StrEnc("-2:uwZdV^%]?{{wHs2V,+(^NJU;kC*_{", "\x7B\x5F\x02\x39\x1C\x6D\x31\x3C\x6C\x6F\x30\x4C\x11\x38\x27\x1E\x23\x64\x3C\x5E\x67\x49\x69\x34\x2D\x33\x43\x58\x36\x50\x66\x3E", 32).c_str();
                         std::string outputAuth = Tools::CalcMD5(auth);
-     
+     EXP = result["data"]["EXP"].get<std::string>();
                         g_Token = token;
                         g_Auth = outputAuth;
 				
@@ -2057,11 +3043,109 @@ std::string Login(const char *user_key) {
     return bValid ? "OK" : errMsg;
 }
 
+std::string inputText = "";
+static char b[64] = "";
+void AddKeyButton(const char* name) {
+    if (ImGui::Button(name, ImVec2(50, 50))) {
+        inputText += name;  
+		  strncpy(b, inputText.c_str(), sizeof(b));
+		
+    }
+    ImGui::SameLine(0, 5.0f);  
+}
+
+
+#include <iostream>
+#include <string>
+#include <curl/curl.h>
+
+size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
+    ((std::string*)userp)->append((char*)contents, size * nmemb);
+    return size * nmemb;
+}
+
+std::string getGitHubFile(const std::string& url) {
+    CURL* curl;
+    CURLcode res;
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+    curl = curl_easy_init();
+
+    std::string readBuffer;
+
+    if (curl) {
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+        res = curl_easy_perform(curl);
+
+        if (res != CURLE_OK) {
+            std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+        }
+
+        curl_easy_cleanup(curl);
+    }
+
+    curl_global_cleanup();
+    return readBuffer;
+}
+
+int main() {
+    std::string url = "https://api.github.com/repos/yourusername/yourrepo/releases/latest";
+    std::string fileContent = getGitHubFile(url);
+    std::cout << fileContent << std::endl;  // выводим полученные данные
+    return 0;
+}
+
+void downloadFile(const std::string& fileUrl, const std::string& savePath) {
+    CURL* curl;
+    CURLcode res;
+    FILE* fp = fopen(savePath.c_str(), "wb");
+
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+    curl = curl_easy_init();
+
+    if (curl) {
+        curl_easy_setopt(curl, CURLOPT_URL, fileUrl.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+        res = curl_easy_perform(curl);
+
+        if (res != CURLE_OK) {
+            std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+        }
+
+        curl_easy_cleanup(curl);
+    }
+
+    curl_global_cleanup();
+    fclose(fp);
+}
+
+
+
+
+void AddKeyButtonWithShift(const char* lower, const char* upper) {
+    std::string name = shiftPressed ? upper : lower;
+    if (ImGui::Button(name.c_str(), ImVec2(50, 50))) {
+        inputText += name;
+        
+  strncpy(b, inputText.c_str(), sizeof(b));
+    }
+    ImGui::SameLine(0, 5.0f);
+}
+void AddSpecialKeyButton(const char* label, const char* value) {
+    if (ImGui::Button(label, ImVec2(50, 50))) {
+        inputText += value;
+         strncpy(b, inputText.c_str(), sizeof(b));
+    }
+    ImGui::SameLine(0, 5.0f);
+}
+
 	namespace Settings
 {
     static int Tab = 1;
 }
-
 	EGLBoolean (*orig_eglSwapBuffers)(EGLDisplay dpy, EGLSurface surface);
 
 EGLBoolean _eglSwapBuffers(EGLDisplay dpy, EGLSurface surface) {
@@ -2073,48 +3157,49 @@ EGLBoolean _eglSwapBuffers(EGLDisplay dpy, EGLSurface surface) {
     if (!g_App)
         return orig_eglSwapBuffers(dpy, surface);
 
+系统屏幕宽 = ANativeWindow_getWidth(g_App->window);
+系统屏幕高 = ANativeWindow_getHeight(g_App->window);
     screenWidth = ANativeWindow_getWidth(g_App->window);
     screenHeight = ANativeWindow_getHeight(g_App->window);
     density = AConfiguration_getDensity(g_App->config);
+    
+    
+    
+    
+    
 
-if (!initImGui) {
-    ImGui::CreateContext();
+    // if (!initImGui) {
+   // ImGui::CreateContext();
+ // ImGuiStyle* style = &ImGui::GetStyle();
+    
+// ImGui_ImplAndroid_Init();
+        // ImGui_ImplOpenGL3_Init("#version 300 es");
 
-    ImGuiStyle* style = &ImGui::GetStyle();
+      if (!initImGui) {
+ImGui::CreateContext();
+    InitTexture();
+ImGuiStyle* style = &ImGui::GetStyle();
+   style->Colors[ImGuiCol_SliderGrab] = ImColor(255, 255, 0, 255); // Цвет захвата слайдера на желтый
+style->Colors[ImGuiCol_CheckMark] = ImColor(125, 91, 255);
+// style->Colors[ImGuiCol_WindowBg]  = ImColor(24, 24, 24, 200); // Полупрозрачный темный фон
+style->Colors[ImGuiCol_WindowBg] = ImColor(255, 255, 255, 150); // Белый фон с прозрачностью
+style->Colors[ImGuiCol_Border]                = ImColor(65, 65, 65, 255);  // Цвет границы
 
-    // Kaydırma çubuğunu çok ince yap
-    style->ScrollbarSize = 6.0f;
-
-    // Menü Renkleri
-    style->Colors[ImGuiCol_WindowBg] = ImVec4(0.1f, 0.1f, 0.1f, 0.85f); // Gri-siyah, yarı şeffaf
-    style->Colors[ImGuiCol_ChildBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);   // Şeffaf
-    style->Colors[ImGuiCol_PopupBg] = ImVec4(0.15f, 0.15f, 0.15f, 0.95f); // Hafif daha açık gri
-
-    // Border ve üst kısmın renkleri
-    style->Colors[ImGuiCol_Border] = ImVec4(0.9f, 0.7f, 0.0f, 1.00f); // Altın sarısı border
-    style->Colors[ImGuiCol_TitleBg] = ImVec4(0.3f, 0.3f, 0.3f, 0.90f); // Gri, yarı saydam
-    style->Colors[ImGuiCol_TitleBgActive] = ImVec4(0.4f, 0.4f, 0.4f, 1.00f); // Daha koyu gri
-    style->Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.2f, 0.2f, 0.2f, 0.75f); // Daha hafif gri
-
-    // Butonlar - Ateş Renkleri
-    style->Colors[ImGuiCol_Button] = ImVec4(0.8f, 0.3f, 0.0f, 1.00f); // Turuncu-kırmızı (ateş tonu)
-    style->Colors[ImGuiCol_ButtonHovered] = ImVec4(1.0f, 0.5f, 0.0f, 1.00f); // Daha parlak turuncu
-    style->Colors[ImGuiCol_ButtonActive] = ImVec4(0.9f, 0.1f, 0.0f, 1.00f); // Kırmızı
-
-    // Kaydırma çubuğu hover renkleri
-    style->Colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.4f, 0.4f, 0.4f, 1.00f); // Gri
-    style->Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.6f, 0.6f, 0.6f, 1.00f); // Açık gri
-    style->Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.8f, 0.8f, 0.8f, 1.00f); // Beyazımsı
-
-    // Genel Ayarlar
-    style->WindowRounding = 6.0f; // Daha yumuşak köşeler
-    style->FrameRounding = 6.0f;  // Daha yumuşak buton köşeleri
-    style->FrameBorderSize = 2.0f; // İnce border
-
-    // Ölçekleme
-    style->ScaleAllSizes(1.2f); // Premium bir his için ölçek artırıldı
-
-    ImGui_ImplAndroid_Init();
+// Цвета заголовка
+style->Colors[ImGuiCol_TitleBg]               = ImColor(0, 0, 0, 255);     // Черный цвет заголовка
+style->Colors[ImGuiCol_TitleBgActive]         = ImColor(0, 0, 0, 255);     // Активный заголовок
+style->Colors[ImGuiCol_TitleBgCollapsed]      = ImColor(0, 0, 0, 125);     // Сложенный заголовок (прозрачный)
+// Цвета для кнопок
+style->Colors[ImGuiCol_Button]                 = ImColor(125, 91, 255);   // Красная кнопка
+style->Colors[ImGuiCol_ButtonHovered]          = ImColor(40, 40, 40, 255);   // Темный красный при наведении
+style->Colors[ImGuiCol_ButtonActive]           = ImColor(40, 40, 40, 255);   // Более темный красный при активации
+// Цвет текста
+style->Colors[ImGuiCol_Text] = ImColor(90, 202, 203); // Голубой цвет текста
+    style->Colors[ImGuiCol_TextDisabled] = ImColor(150, 200, 255, 255); // Светло-голубой для неактивного текста
+// Цвет фона для выделенных элементов
+style->Colors[ImGuiCol_ChildBg]                = ImColor(24, 24, 24, 140);    // Цвет фона для дочерних окон
+style->Colors[ImGuiCol_FrameBg]                = ImColor(30, 30, 30, 255);    // Цвет фона для рамок
+        ImGui_ImplAndroid_Init();
     ImGui_ImplOpenGL3_Init("#version 300 es");
 
 
@@ -2151,8 +3236,8 @@ if (!initImGui) {
             icons_config.OversampleH = 2.5;
             icons_config.OversampleV = 2.5;
             
-          io.Fonts->AddFontFromMemoryTTF(const_cast<std::uint8_t*>(Custom), sizeof(Custom), 25.f, &CustomFont);
-       io.Fonts->AddFontFromMemoryCompressedTTF(font_awesome_data, font_awesome_size, 30.0f, &icons_config, icons_ranges);
+          io.Fonts->AddFontFromMemoryTTF(const_cast<std::uint8_t*>(Custom), sizeof(Custom), 18.f, &CustomFont);
+       io.Fonts->AddFontFromMemoryCompressedTTF(font_awesome_data, font_awesome_size, 20.0f, &icons_config, icons_ranges);
 
             ImFontConfig cfg;
             cfg.SizePixels = ((float) density / 20.0f);
@@ -2212,168 +3297,265 @@ if (!initImGui) {
 
     DrawESP(ImGui::GetBackgroundDrawList());
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+
+
+
 if (ImGui::IsMouseDoubleClicked(0)) {   
          HideWindow = HideWindow;
         }
- if (HideWindow) {
+        static bool Beka0;
+static bool openmenu = true;
+        static bool anticrack = false;
+if (openmenu){
+        if (ImGui::Begin(" XERO 3 ", 0,ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings)) {
+        if (ImGui::Button(OBFUSCATE("  OPEN  "), ImVec2(60, 50))) {
 
-    ImGui::SetNextWindowSize(ImVec2((float)glWidth * 0.35f, (float)glHeight * 0.53f), ImGuiCond_Once);
+        Beka0 = true; }
+	
 
+}}
+               if (Beka0){
+     
+ImGui::SetNextWindowPos(ImVec2(530, 100), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2((float) glWidth * 0.42f, (float) glHeight * 0.62f), ImGuiCond_Once);
+ImGui::Begin("beka32", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground);{
+	ImGui::SetNextWindowSize(ImVec2((float) glWidth * 0.49f, (float) glHeight * 0.64f),ImGuiCond_Once);
+ImGui::Begin( "Menu",&Beka0, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar);
+	
     static bool p_open = true;
-    ImGui::PushFont(Arabic);
-    if (ImGui::Begin(OBFUSCATE("beka~V7A~2.7.0"), &p_open, ImGuiWindowFlags_NoSavedSettings)) {
         static bool isLogin = true;
+if(Klavye){
+   if(ImGui::Begin("##2whsusv8",&Klavye,ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize ))	{		
+         
+   ImGui::InputText("##name", b, sizeof b);
+   
+    AddKeyButtonWithShift("q", "Q"); AddKeyButtonWithShift("w", "W"); AddKeyButtonWithShift("e", "E");
+    AddKeyButtonWithShift("r", "R"); AddKeyButtonWithShift("t", "T"); AddKeyButtonWithShift("y", "Y");
+    AddKeyButtonWithShift("u", "U"); AddKeyButtonWithShift("i", "I"); AddKeyButtonWithShift("o", "O");
+    AddKeyButtonWithShift("p", "P");
+    ImGui::NewLine();
+    ImGui::Dummy(ImVec2(25, 0));
+    ImGui::SameLine();
+    AddKeyButtonWithShift("a", "A"); AddKeyButtonWithShift("s", "S"); AddKeyButtonWithShift("d", "D");
+    AddKeyButtonWithShift("f", "F"); AddKeyButtonWithShift("g", "G"); AddKeyButtonWithShift("h", "H");
+    AddKeyButtonWithShift("j", "J"); AddKeyButtonWithShift("k", "K"); AddKeyButtonWithShift("l", "L");
+    ImGui::NewLine();
+    ImGui::Dummy(ImVec2(50, 0));
+    ImGui::SameLine();
+    AddKeyButtonWithShift("z", "Z"); AddKeyButtonWithShift("x", "X"); AddKeyButtonWithShift("c", "C");
+    AddKeyButtonWithShift("v", "V"); AddKeyButtonWithShift("b", "B"); AddKeyButtonWithShift("n", "N");
+    AddKeyButtonWithShift("m", "M"); AddSpecialKeyButton(",", ","); AddSpecialKeyButton(".", ".");
+    ImGui::NewLine();
+    if (ImGui::Button(shiftPressed ? "SHIFT" : "shift", ImVec2(75, 50))) {
+        shiftPressed = !shiftPressed;}
+    ImGui::SameLine();
+    if (ImGui::Button("Space", ImVec2(200, 50))) {
+        inputText += " ";
+        strncpy(b, inputText.c_str(), sizeof(b));
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Delete", ImVec2(75, 50))) {
+        if (!inputText.empty()) {
+            inputText.pop_back();
+            strncpy(b, inputText.c_str(), sizeof(b));
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("PASTE", ImVec2(75, 50))) {
+        Klavye = false;
+    }
+ImGui::NewLine();
+    AddKeyButton("1"); AddKeyButton("2"); AddKeyButton("3"); AddKeyButton("4"); AddKeyButton("5");
+    AddKeyButton("6"); AddKeyButton("7"); AddKeyButton("8"); AddKeyButton("9"); AddKeyButton("0");
+    ImGui::NewLine();
 
+    AddSpecialKeyButton("!", "!"); AddSpecialKeyButton("@", "@"); AddSpecialKeyButton("#", "#");
+    AddSpecialKeyButton("$", "$"); AddSpecialKeyButton("%", "%"); AddSpecialKeyButton("_", "_");
+    AddSpecialKeyButton("&", "&"); AddSpecialKeyButton("*", "*"); AddSpecialKeyButton("(", "(");
+    AddSpecialKeyButton(")", ")");
+    ImGui::NewLine();
+    ImGui::End();}}
+    
         if (!isLogin) {
-            ImGui::Text("Please Login! (Copy Key to @FTSMOD)");
+            ImGui::Text("Please Login! (Copy Key to @Terrible_Pm)");
 
             ImGui::PushItemWidth(-1);
             static char s[64];
+          
             ImGui::InputText("##key", s, sizeof s);
             ImGui::PopItemWidth();
+            ImGui::Text(" ");
+            ImGui::InputText("##name", b, sizeof b);
+            ImGui::PopItemWidth();
+               ImGui::SameLine(); 
+               if (ImGui::Button("  Your Name  ", ImVec2(ImGui::GetContentRegionAvail().x, 0))) {
+    Klavye = true;
+}
 
-            if (ImGui::Button("  Paste Your Key  ", ImVec2(ImGui::GetContentRegionAvailWidth(), 0))) {
-                auto key = getClipboardText();
-                strncpy(s, key.c_str(), sizeof s);
-            }
+ImGui::Separator(); 
 
-            static std::string err;
-            if (ImGui::Button("Login", ImVec2(ImGui::GetContentRegionAvailWidth(), 0))) {
-                err = Login(s);
-                if (err == "OK") {
-                    isLogin = bValid && g_Auth == g_Token;
-                }
-            }
+if (ImGui::Button("  Paste Your Key  ", ImVec2(ImGui::GetContentRegionAvail().x, 0))) {
+    auto key = getClipboardText();
+    strncpy(s, key.c_str(), sizeof(s) - 1);
+    s[sizeof(s) - 1] = '0'; // Обеспечиваем нулевое окончание
+}
+
+static std::string err;
+if (ImGui::Button("Login", ImVec2(ImGui::GetContentRegionAvail().x, 0))) {
+    err = Login(s);
+    if (err == "OK") {
+        isLogin = bValid && g_Auth == g_Token;
+    }
+}
 
             if (!err.empty() && err != "OK") {
                 ImGui::Text("Error: %s", err.c_str());
             }
         } else {
-            // ESP MENÜ
-            ImGui::PushFont(Arabic);
-            	    if (ImGui::BekaButton("  Player Esp", Settings::Tab == 1)) 
-					Settings::Tab = 1;
-		  ImGui::SameLine();
-					 if (ImGui::BekaButton(" Aim", Settings::Tab == 2)) 
-					Settings::Tab = 2;
-					   if (ImGui::Button("Run Auto Bypass")) {
-        AutoRunBypass(); // Fetch and apply bypass when the button is clicked
+        anticrack = true;
+        }
+		if(anticrack){
+	    ImGui::SetCursorPos(ImVec2(600, 0));
+	    ImGui::BeginChild(" ", ImVec2(185, 450), true); {
+        ImGui::TextColored(ImColor(255, 255, 255, 255), "BEKA ENGINE v1    ");
+        ImGui::SameLine();      
+        if (ImGui::Button("X", ImVec2(35, 30))) { Beka0 = false;}
+        ImGui::TextColored(ImColor(255, 255, 255, 255), "    ");
+        ImGui::SameLine();      
+        ImGui::Image(logo5.textureId, {100, 100});
+        ImGui::Separator();
+	    if(ImGui::BekaButton( "     Main  ",  Settings::Tab == 4))
+		Settings::Tab = 4;
+		ImGui::Separator();	
+        if(ImGui::BekaButton( "     Esp   ",  Settings::Tab == 1)) 
+		Settings::Tab = 1;
+		ImGui::Separator();	
+        if(ImGui::BekaButton( "     Aimbot",  Settings::Tab == 2)) 
+  	    Settings::Tab = 2;
+  	    ImGui::Separator();	
+	    if(ImGui::BekaButton( "     Settings",  Settings::Tab == 5)) 
+  	    Settings::Tab = 5;
+
+				ImGui::TextColored(ImColor(250, 255, 265, 255),EXP.c_str());  	
+		        }ImGui::EndChild();
+		        
+		       	if (Settings::Tab == 1) {
+		       	ImGui::SetCursorPos(ImVec2(0, 0));
+	            ImGui::BeginChild(" espp1", ImVec2(298, 449), true); {
+                ImVec2 windowSize = ImGui::GetContentRegionAvail();
+                float buttonWidth = windowSize.x / 2.2f; 
+                float buttonHeight = 40.0f; 
+                float spacing = 5.0f; 
+                ImGui::Spacing();
+                ImGui::BeginChild(" All", ImVec2(283, 33), true); {
+                ImGui::Checkbox(u8"Enable All", &alll);    
+                }ImGui::EndChild();  
+	            ImGui::BeginChild(" esp1", ImVec2(283, 33), true); {
+                ImGui::Checkbox(u8"Esp Health", &Config.PlayerESP.Health);
+                }ImGui::EndChild();
+                ImGui::BeginChild(" esp2", ImVec2(283, 33), true); {
+                ImGui::Checkbox(u8"ESP Alert", &Config.PlayerESP.Alert);
+                }ImGui::EndChild();
+                ImGui::BeginChild(" esp3", ImVec2(283, 33), true); {
+                ImGui::Checkbox(u8"Esp Name", &Config.PlayerESP.Name);    
+                }ImGui::EndChild();   
+                ImGui::BeginChild(" esp4", ImVec2(283, 33), true); {
+                ImGui::Checkbox(u8"Esp Distance", &Config.PlayerESP.Distance);  
+                }ImGui::EndChild();
+                ImGui::BeginChild(" esp5", ImVec2(283, 33), true); {
+                ImGui::Checkbox(u8"Esp TeamID", &Config.PlayerESP.TeamID);
+                }ImGui::EndChild();
+                ImGui::BeginChild(" esp6", ImVec2(283, 33), true); {
+                ImGui::Checkbox(u8"ESP Vehicle", &Config.PlayerESP.Vehicle);
+                }ImGui::EndChild();
+if (ImGui::BeginPopupModal("New update available!", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    ImGui::Text("Do you want to download?");
+    if (ImGui::Button("Yes")) {
+        downloadFile("https://github.com/yourusername/yourrepo/releases/download/latest/file.zip", "file.zip");
+        ImGui::CloseCurrentPopup();
     }
-					
-   ImGui::SetCursorPos(ImVec2(10,90));
-				ImGui::BeginChild("##esp",ImVec2(400, 400));{
-                	if (Settings::Tab == 1) {
-                    // Tablo başlat
-                    if (ImGui::BeginTable("split", 2, ImGuiTableFlags_SizingStretchSame)) {
-                        ImGui::PushFont(Arabic);
-
-                        // Menü genişliği ve yüksekliği
-                        ImVec2 windowSize = ImGui::GetContentRegionAvail();
-                        float buttonWidth = windowSize.x / 2.2f; // Buton genişliği
-                        float buttonHeight = 40.0f; // Sabit buton yüksekliği
-                        float spacing = 5.0f; // Butonlar arası boşluk
-
-                        ImGui::Spacing();
-
-                        // ESP Butonları düzenli yerleştirme
-                        ImGui::TableNextColumn();
-                        ImGui::Checkbox(u8"Esp", &Config.PlayerESP.Line);
-
-                        ImGui::TableNextColumn();
-                        ImGui::Checkbox(u8"Enable All Esp", &Feu);
-
-                        ImGui::TableNextColumn();
-                        ImGui::Checkbox(u8"ESP Alert", &Config.PlayerESP.Alert);
-
-                        ImGui::TableNextColumn();
-                        ImGui::Checkbox(u8"ESP Vehicle", &Config.PlayerESP.Vehicle);
-
-                        ImGui::TableNextColumn();
-                        ImGui::Checkbox(u8"ESP Box3D", &Config.PlayerESP.Box3D);
-
-                        ImGui::TableNextColumn();
-                        ImGui::Checkbox(u8"ESP Bone", &Config.PlayerESP.Skeleton);
-
-                        ImGui::TableNextColumn();
-                        ImGui::Checkbox(u8"ESP Line", &Config.PlayerESP.LineTop);
-
-                        ImGui::TableNextColumn();
-                        ImGui::Checkbox(u8"ESP V-Fuel", &Config.PlayerESP.VehicleFuel);
-
-                        ImGui::TableNextColumn();
-                        ImGui::Checkbox(u8"ESP V-Hp", &Config.PlayerESP.VehicleHP);
-
-                        ImGui::TableNextColumn();
-                        ImGui::Checkbox(u8"Granade Alert", &Config.PlayerESP.Grenade);
-
-                        ImGui::TableNextColumn();
-                        ImGui::Checkbox(u8"ESP LootBox", &Config.PlayerESP.LootBox);
-       ImGui::TableNextColumn();
-       
-                        ImGui::EndTable();
-                        ImGui::PopFont();
-             
-             
-                    }
-                    ImGui::EndTabItem();
+    ImGui::SameLine();
+    if (ImGui::Button("No")) {
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+}
+                }ImGui::EndChild();
+ 
+       	        ImGui::SetCursorPos(ImVec2(299, 0));
+	            ImGui::BeginChild(" esp32", ImVec2(304, 449), true); {
+	            ImGui::BeginChild(" espwjj", ImVec2(284, 33), true); {
+                ImGui::Checkbox(u8"ESP Box3D", &Config.PlayerESP.Box3D);
+                }ImGui::EndChild();
+                ImGui::BeginChild(" esp8", ImVec2(284, 33), true); {
+                ImGui::Checkbox(u8"ESP Bone", &Config.PlayerESP.Skeleton);
+                }ImGui::EndChild();
+                ImGui::BeginChild(" esp9", ImVec2(284, 33), true); {
+                ImGui::Checkbox(u8"ESP Line", &Config.PlayerESP.LineTop);
+                }ImGui::EndChild();
+                ImGui::BeginChild(" esp10", ImVec2(284, 33), true); {
+                ImGui::Checkbox(u8"ESP V-Fuel", &Config.PlayerESP.VehicleFuel);
+                }ImGui::EndChild();
+                ImGui::BeginChild(" esp11", ImVec2(284, 33), true); {
+                ImGui::Checkbox(u8"ESP V-Hp", &Config.PlayerESP.VehicleHP);
+                }ImGui::EndChild();
+                ImGui::BeginChild(" esp12", ImVec2(284, 33), true); {
+                ImGui::Checkbox(u8"Granade Alert", &Config.PlayerESP.Grenade);
+                }ImGui::EndChild();
+                ImGui::BeginChild(" esp13", ImVec2(284, 33), true); {
+                ImGui::Checkbox(u8"ESP LootBox", &Config.PlayerESP.LootBox);
+                }ImGui::EndChild();
+                
+                }ImGui::EndChild();}
+                
+	 		    if (Settings::Tab == 5) {
+		       	ImGui::SetCursorPos(ImVec2(0, 0));
+	            ImGui::BeginChild(" Main", ImVec2(599, 450), true); {
+	            ImGui::BulletText("Settings"); 
+	            ImGui::Separator();	
+	            if (ImGui::Button("Name", ImVec2(75, 50))) {
+                Klavye = true;
                 }
-                
-			   }
+	            ImGui::BulletText("Memory"); 
+	            ImGui::Separator();	
+	            ImGui::Checkbox("Fly (ban)", &On);
+	            ImGui::Checkbox("Disable Fly", &Of);
+	            ImGui::Separator();	
+	            }}
+		      	if (Settings::Tab == 4) {
+		       	ImGui::SetCursorPos(ImVec2(0, 0));
+	            ImGui::BeginChild(" Main", ImVec2(599, 450), true); {
+	            ImGui::BulletText("Main Menu"); 
+	            ImGui::Text (" Device resolution is: %dx%d", 系统屏幕宽, 系统屏幕高);
+	            	if (ImGui::SubTab(0 == Settings::Tab, "OPEN TELEGRAM", ImVec2(180, 62))) Settings::Tab = 0;
+
+	        //    ImGui::TextColored(ImColor(0, 255, 0,225), " libUE4.so: 0x%lX  <驱动正常>", UE4数据存储);  
+               // SuperText("Welcome user");
+	            }}
+	            
 			   	if (Settings::Tab == 2) {
-
-			   	}
-			   ImGui::PushFont(Arabic);
-           if (ImGui::BeginTabItem(u8" AIMBOT  ")) {
-                    ImGui::Spacing();
-                    if (ImGui::BeginTable("split", 1)) {
-			            
-			            
-			            ImGui::Separator();  
-                        ImGui::TableNextColumn();
-                     //   ImGui::PushFont(Arabic);
-                        
-                        ImGui::Spacing();
-			
-                    ImGui::TableNextColumn();
-                    ImGui::Separator();  
-			
-			            ImGui::Separator(); 
-			            ImGui::TableNextColumn();
-			            ImGui::Spacing();
-                     //   ImGui::Checkbox((u8"Silent Aim Enable"), &Config.SilentAim.Enable);
-                        ImGui::Checkbox((u8"Aimbot 150M"), &Config.AimBot.Enable);
-                        ImGui::Checkbox((u8"BT 50° (risk)"), &Config.SilentAim.Enable);
-                        
-		             	static int slider_test_0 = 50;
-						ImGui::SliderFloat("FOV Size", &Config.AimBot.Cross, 0.0f, 400.0f);
-						ImGui::SliderFloat("Anti-Recoil", &Config.Recc, 0.0f, 2.0f);
-				 	//	ImGui::SliderFloat("Meter", &Config.Meter, 6.2f, 0.0f, 150.0f, "%.0f");
-						
-	         	static const char *triggers[] = {"Always", "Shooting"};
-	     		ImGui::Combo("Trigger", (int *) &Config.AimBot.Trigger, triggers, 2, -1);
-
-                    //    ImGui::Checkbox("Prediction ", &Config.AimBot.Predection);		
-						
-                        ImGui::Checkbox("Visibility Check", &Config.AimBot.VisCheck);
-				        ImGui::Checkbox("Ignore Knock", &Config.AimBot.IgnoreKnocked);			
-						
-                        ImGui::Checkbox("Ignore Bot", &Config.AimBot.IgnoreBot);
-						
-				
-	
-			            ImGui::EndTable();
-			            ImGui::PopFont();
-                        
-                    }
-                    ImGui::EndTabItem();
-            
-					 
-
-                
+		       	ImGui::SetCursorPos(ImVec2(0, 0));
+	            ImGui::BeginChild(" Aimbot", ImVec2(599, 450), true); {
+	   	        ImGui::BulletText("Aimbot"); 
+	   	        ImGui::Separator();
+                ImGui::Checkbox((u8"Aimbot 150M"), &Config.AimBot.Enable);
+             //   ImGui::SameLine(300);           
+                ImGui::Checkbox((u8"BT 50° (risk)"), &Config.SilentAim.Enable);
+                ImGui::Text(" ");
+                ImGui::Separator();	
+		        static int slider_test_0 = 50;
+		        ImGui::SliderFloat("Aim fov", &Config.AimBot.Cross, 0.0f, 400.0f);
+		        ImGui::SliderFloat("Anti-Recoil", &Config.Recc, 0.0f, 2.0f);
+		        ImGui::Text("");
+	            static const char *triggers[] = {"Always", "Shooting"};
+	     	    ImGui::Combo("Trigger", (int *) &Config.AimBot.Trigger, triggers, 1, -1);
+                ImGui::Checkbox("Visibility Check", &Config.AimBot.VisCheck);
+		        ImGui::Checkbox("Ignore Knock", &Config.AimBot.IgnoreKnocked);
+                ImGui::Checkbox("Ignore Bot", &Config.AimBot.IgnoreBot);				
+                    } }           
 		 }
-       } 
-      } }
-   
+      } 
+   }
 
 ImGui::End();
     ImGui::Render();
@@ -2419,84 +3601,155 @@ ImGui::End();
     }
 }
 
-// Add in Top
-
-
-#include <iostream>
-#include <string>
-#include <curl/curl.h>
-#include "imgui.h"
-
-std::string bypassStatus = "Waiting to load...";
-
-// Callback function to capture fetched data from the HTTP response
-size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* output) {
-    size_t totalSize = size * nmemb;
-    output->append((char*)contents, totalSize);
-    return totalSize;
-}
-
-// Function to fetch the offset from an online URL
-std::string FetchOffsetFromOnline(const std::string& url) {
-    CURL* curl;
-    CURLcode res;
-    std::string readBuffer;
-
-    curl = curl_easy_init();
-    if (curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
-        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L); // Follow redirects
-
-        res = curl_easy_perform(curl);
-        if (res != CURLE_OK) {
-            std::cerr << "cURL Error: " << curl_easy_strerror(res) << std::endl;
+uintptr_t GetLibMapFileSize(const char *libraryName) {
+    if(strstr(libraryName, "anon:libc_malloc"))
+    return 0;
+    FILE *fp = fopen("/proc/self/maps", "rt");
+    uintptr_t baseAddress = 0;
+    if (fp != NULL) {
+        char line[512] = {0};
+        while (fgets(line, sizeof(line), fp)) {
+            if (strstr(line, libraryName)) {
+                uintptr_t startAddr, endAddr;
+                sscanf(line, "%lx-%lx", &startAddr, &endAddr);
+                baseAddress = endAddr - startAddr;
+                break;
+            }
         }
-
-        curl_easy_cleanup(curl);
+       fclose(fp);
     }
-
-    return readBuffer;
+ return baseAddress;
 }
 
-// Function to apply the fetched offset
-void ApplyOffset(const std::string& offsetData) {
-    std::string libName, offset, patch;
-    size_t start = offsetData.find("\"");
-    if (start != std::string::npos) {
-        size_t end = offsetData.find("\"", start + 1);
-        libName = offsetData.substr(start + 1, end - start - 1);
 
-        start = offsetData.find("\"", end + 1);
-        end = offsetData.find("\"", start + 1);
-        offset = offsetData.substr(start + 1, end - start - 1);
+unsigned int libanogsSize = GetLibMapFileSize("libanogs.so");
+unsigned int libUE4Size = GetLibMapFileSize("libUE4.so");
 
-        start = offsetData.find("\"", end + 1);
-        end = offsetData.find("\"", start + 1);
-        patch = offsetData.substr(start + 1, end - start - 1);
+long new_UE4, libUE4, safe;
+long UE4_size = 0;
+long new_anogs, libanogs, safe1;
+long anogs_size = 0;
 
-        std::cout << "Applying Offset: " << libName << ", " << offset << ", " << patch << std::endl;
+size_t getLibrarySize(const char *libraryName)
+{
+    FILE *mapsFile = fopen("/proc/self/maps", "r");
+    if (mapsFile == nullptr)
+    {
+        return 0;
+    }
+
+    char line[256];
+    size_t size = 0;
+    uintptr_t startAddr = 0, endAddr = 0;
+    while (fgets(line, sizeof(line), mapsFile))
+    {
+        if (strstr(line, libraryName))
+        {
+            sscanf(line, "%lx-%lx", &startAddr, &endAddr);
+            size = endAddr - startAddr;
+            break;
+        }
+    }
+
+    fclose(mapsFile);
+    return size;
+}
+
+char *Offset;
+
+ 
+
+long GetModuleBase(const char *name)
+{
+ char buff[1024];
+ long address = 0;
+ FILE *fp = fopen("/proc/self/maps", "r");
+ while (fgets(buff, sizeof(buff), fp))
+ {
+  if (strstr(buff, name))
+  {
+   sscanf(buff, "%lx-%*lx", &address);
+   fclose(fp);
+   return address;
+  }
+ }
+ fclose(fp);
+ return 0;
+}
+
+size_t GetLibrarySize(const char* libName) {
+    std::mt19937 rng(static_cast<unsigned int>(time(nullptr)));
+
+    if (strcmp(libName, "libUE4.so") == 0) {
+        std::uniform_int_distribution<size_t> dist(0x22EDF68, 0x825CE6C); // Диапазон для libUE4.so
+        return dist(rng);
     } else {
-        bypassStatus = "Invalid offset data format!";
-        std::cerr << "Invalid offset data format!" << std::endl;
+        std::cerr << "Unknown library: " << libName << std::endl;
+        return 0;
     }
 }
 
-// Function to automatically fetch and apply the offset
-void AutoRunBypass() {
-    std::string url = "https://raw.githubusercontent.com/yourrepo/offsets/main/bypass.txt"; // Replace with your URL
-    std::string offsetData = FetchOffsetFromOnline(url);
+uintptr_t GetRandomAddress(uintptr_t baseAddress, size_t librarySize) {
+    std::mt19937 rng(static_cast<unsigned int>(time(nullptr)));
+    std::uniform_int_distribution<size_t> dist(0, librarySize - 1);
+    return baseAddress + dist(rng);
+}
 
-    if (!offsetData.empty()) {
-        ApplyOffset(offsetData);
-        bypassStatus = "Bypass applied successfully!";
-        std::cout << "Bypass applied automatically!" << std::endl;
-    } else {
-        bypassStatus = "Failed to fetch offset! Check your internet connection or URL.";
-        std::cerr << "Failed to fetch offset for auto-run!" << std::endl;
+void PatchMemory(uintptr_t address, const uint8_t* newBytes, size_t size) {
+    if (mprotect(reinterpret_cast<void*>(address & ~(sysconf(_SC_PAGESIZE) - 1)), 
+                  sysconf(_SC_PAGESIZE), PROT_READ | PROT_WRITE | PROT_EXEC) != 0) {
+        std::cerr << "Failed to change memory protection." << std::endl;
+        return;
+    }
+    memcpy(reinterpret_cast<void*>(address), newBytes, size);
+}
+
+uintptr_t GetLibraryBaseAddress(const char* libName) {
+    void* handle = dlopen(libName, RTLD_NOW);
+    if (!handle) {
+        std::cerr << "Failed to load library: " << dlerror() << std::endl;
+        return 0;
+    }
+    return reinterpret_cast<uintptr_t>(handle);
+}
+
+void PatchLibrary(const char* libraryName) {
+    uintptr_t baseAddress = GetLibraryBaseAddress(libraryName);
+
+    if (baseAddress == 0) {
+        return; 
+    }
+size_t librarySize = GetLibrarySize(libraryName);
+    std::vector<uint8_t> newBytes = { 0x00, 0x00, 0xA0, 0xE3, 0x1E, 0xFF, 0x2F, 0xE1 }; 
+    size_t size = newBytes.size();
+
+    size_t patchCount = 0; 
+
+    while (true) {
+        uintptr_t targetAddress = GetRandomAddress(baseAddress, librarySize);
+        PatchMemory(targetAddress, newBytes.data(), size);
+        patchCount++;
+
+        std::cout << "Patched memory in " << libraryName << " | Successful patches: " << patchCount << std::endl;
+
+        usleep(1);  
     }
 }
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_example_myapp_MainActivity_patchMemory(JNIEnv *env, jobject /* this */) {
+    const char* libraries[] = { "libUE4.so" }; 
+    std::vector<std::thread> threads;
+
+    for (const char* library : libraries) {
+        threads.emplace_back(PatchLibrary, library); 
+    }
+
+    for (auto& thread : threads) {
+        thread.join(); 
+    }
+}
+
 
 void *main_thread(void *) {
        
@@ -2545,7 +3798,8 @@ int (*sub_60A34)(int a1, unsigned char *a2, size_t a3);
         Tools::Hook((void *) DobbySymbolResolver(OBFUSCATE("/system/lib/libEGL.so"), OBFUSCATE("eglSwapBuffers")), (void *) _eglSwapBuffers, (void **) &orig_eglSwapBuffers);
 
         pthread_t t;
-        pthread_create(&t, 0, maps_thread, 0);
+
+             pthread_create(&t, 0, maps_thread, 0);
         items_data = json::parse(JSON_ITEMS);
         return 0;
     }
